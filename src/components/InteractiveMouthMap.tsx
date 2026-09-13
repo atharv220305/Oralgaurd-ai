@@ -7,14 +7,18 @@ import {
   HelpCircle,
   Info,
   Shield,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { ORAL_REGIONS } from '../data/oralAnatomy';
-import { OralRegion } from '../types';
+import { OralRegion, MouthMapLocationItem } from '../types';
 
 export interface InteractiveMouthMapProps {
   confirmedLocation?: string | null;
   confirmedRegionId?: string | null;
-  onConfirmLocation: (region: OralRegion) => void;
+  confirmedLocations?: MouthMapLocationItem[];
+  onConfirmLocation?: (region: OralRegion) => void;
+  onConfirmMultipleLocations?: (regions: OralRegion[]) => void;
   onClearLocation?: () => void;
   onCancel: () => void;
   onClose?: () => void;
@@ -25,6 +29,8 @@ export interface InteractiveMouthMapProps {
 const REGION_ORDER: string[] = [
   'lip_upper',
   'gingiva_upper',
+  'hard_palate',
+  'soft_palate',
   'hard_soft_palate',
   'tonsil_oropharynx',
   'buccal_mucosa_left',
@@ -35,72 +41,119 @@ const REGION_ORDER: string[] = [
   'floor_of_mouth',
   'gingiva_lower',
   'lip_lower',
+  'other_unspecified',
 ];
 
 export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
   confirmedRegionId,
+  confirmedLocations = [],
   onConfirmLocation,
+  onConfirmMultipleLocations,
   onClearLocation,
   onCancel,
   onClose,
   language = 'en',
   isCompact = false,
 }) => {
-  // Requirement 1: NO DEFAULT / PRE-SELECTED LOCATION.
-  // Initial state MUST be null.
-  const [draftRegionId, setDraftRegionId] = useState<string | null>(null);
+  // Requirement: No random/default selection.
+  // Initialize draft with previously confirmed locations if any, otherwise empty array.
+  const initialSelectedIds = React.useMemo(() => {
+    if (confirmedLocations && confirmedLocations.length > 0) {
+      return confirmedLocations.map((l) => l.id).filter((id) => Boolean(ORAL_REGIONS[id]));
+    }
+    if (confirmedRegionId && ORAL_REGIONS[confirmedRegionId]) {
+      return [confirmedRegionId];
+    }
+    return [];
+  }, [confirmedLocations, confirmedRegionId]);
+
+  const [draftRegionIds, setDraftRegionIds] = useState<string[]>(initialSelectedIds);
   const [focusedRegionId, setFocusedRegionId] = useState<string | null>(null);
   const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<'all' | 'tongue' | 'cheek' | 'gums' | 'throat'>('all');
+  const [activeCategory, setActiveCategory] = useState<'all' | 'tongue' | 'cheek' | 'gums' | 'palate' | 'throat'>('all');
   const [liveAnnouncement, setLiveAnnouncement] = useState<string>('');
 
   const isHindi = language === 'hi';
   const isHinglish = language === 'hinglish';
 
-  const selectedRegion: OralRegion | null = draftRegionId ? ORAL_REGIONS[draftRegionId] || null : null;
+  const selectedRegions: OralRegion[] = draftRegionIds
+    .map((id) => ORAL_REGIONS[id])
+    .filter((reg): reg is OralRegion => Boolean(reg));
 
-  // Requirement 3: Change location. Removes previous selection, only latest remains active.
-  const handleSelectRegion = (regionId: string) => {
-    setDraftRegionId(regionId);
-    const reg = ORAL_REGIONS[regionId];
-    if (reg) {
-      setLiveAnnouncement(`Selected ${reg.name}. Patient-reported area of concern.`);
+  const isSelected = (regionId: string) => draftRegionIds.includes(regionId);
+
+  // Toggle or add region
+  const handleToggleRegion = (regionId: string) => {
+    if (regionId === 'unknown_location') {
+      // If choosing "not sure", it sets solely unknown
+      setDraftRegionIds(['unknown_location']);
+      setLiveAnnouncement('Selected Not Sure / Unspecified location.');
+      return;
     }
+
+    setDraftRegionIds((prev) => {
+      // Filter out unknown if selecting a specific location
+      const withoutUnknown = prev.filter((id) => id !== 'unknown_location');
+      if (withoutUnknown.includes(regionId)) {
+        // Remove individual selected location
+        const next = withoutUnknown.filter((id) => id !== regionId);
+        const reg = ORAL_REGIONS[regionId];
+        setLiveAnnouncement(`Removed ${reg?.name || regionId}.`);
+        return next;
+      } else {
+        // Add location
+        const next = [...withoutUnknown, regionId];
+        const reg = ORAL_REGIONS[regionId];
+        setLiveAnnouncement(`Added ${reg?.name || regionId} to selection (${next.length} selected).`);
+        return next;
+      }
+    });
   };
 
-  // Requirement 4: Clear / Reset selection
+  // Remove single selected location
+  const handleRemoveRegion = (regionId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setDraftRegionIds((prev) => prev.filter((id) => id !== regionId));
+    const reg = ORAL_REGIONS[regionId];
+    setLiveAnnouncement(`Removed ${reg?.name || regionId}.`);
+  };
+
+  // Clear / Reset all selections
   const handleClearSelection = () => {
-    setDraftRegionId(null);
-    setLiveAnnouncement('Selection cleared. Select an anatomical area where you noticed the symptom.');
+    setDraftRegionIds([]);
+    setLiveAnnouncement('All locations cleared. Select an anatomical area where you noticed the symptom.');
     if (onClearLocation) {
       onClearLocation();
     }
   };
 
-  // Requirement 6 & 12: Confirm location
+  // Confirm Location(s)
   const handleConfirm = () => {
-    if (!draftRegionId || !selectedRegion) return;
-    onConfirmLocation(selectedRegion);
+    if (draftRegionIds.length === 0) return;
+
+    if (onConfirmMultipleLocations) {
+      onConfirmMultipleLocations(selectedRegions);
+    } else if (onConfirmLocation && selectedRegions.length > 0) {
+      onConfirmLocation(selectedRegions[0]);
+    }
   };
 
-  // Requirement 5: Cancel. Discards unconfirmed changes and returns without modifying confirmed session state.
+  // Cancel: Discards unconfirmed changes and restores previously confirmed state
   const handleCancel = () => {
-    setDraftRegionId(null);
+    setDraftRegionIds(initialSelectedIds);
     onCancel();
   };
 
-  // Requirement 7: Allow "Not sure / I can't identify exact area"
+  // Dedicated "Not sure / I can't identify exact area"
   const handleSelectNotSure = () => {
-    handleSelectRegion('unknown_location');
+    handleToggleRegion('unknown_location');
   };
 
-  const isSelected = (regionId: string) => draftRegionId === regionId;
-
-  // Keyboard navigation for accessible SVG regions
+  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<SVGGElement>, regionId: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      handleSelectRegion(regionId);
+      handleToggleRegion(regionId);
       return;
     }
 
@@ -126,7 +179,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
     }
   };
 
-  // Clean, high-legibility clinical fills
+  // Clean clinical fills
   const getFillColor = (regionId: string) => {
     if (isSelected(regionId)) {
       return '#ccfbf1'; // Crisp medical teal-100
@@ -138,28 +191,30 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
       return '#f0fdf4';
     }
 
-    // Natural clean anatomical mucosal tones
     switch (regionId) {
       case 'lip_upper':
       case 'lip_lower':
-        return '#fecdd3'; // Soft rose mucosal vermilion
+        return '#fecdd3';
       case 'gingiva_upper':
       case 'gingiva_lower':
-        return '#fce7f3'; // Soft pink gingiva
+        return '#fce7f3';
+      case 'hard_palate':
       case 'hard_soft_palate':
-        return '#ffedd5'; // Soft palate warm beige
+        return '#ffedd5';
+      case 'soft_palate':
+        return '#fed7aa';
       case 'tonsil_oropharynx':
-        return '#ffe4e6'; // Posterior pharyngeal arch
+        return '#ffe4e6';
       case 'buccal_mucosa_left':
       case 'buccal_mucosa_right':
-        return '#fff1f2'; // Inner cheek mucosa
+        return '#fff1f2';
       case 'tongue_dorsum':
-        return '#fecdd3'; // Tongue dorsum
+        return '#fecdd3';
       case 'lateral_tongue_left':
       case 'lateral_tongue_right':
-        return '#fda4af'; // Lateral tongue borders
+        return '#fda4af';
       case 'floor_of_mouth':
-        return '#fee2e2'; // Floor of mouth
+        return '#fee2e2';
       default:
         return '#f8fafc';
     }
@@ -191,8 +246,9 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
     if (activeCategory === 'all') return true;
     if (activeCategory === 'tongue') return reg.id.includes('tongue') || reg.id.includes('floor');
     if (activeCategory === 'cheek') return reg.id.includes('buccal') || reg.id.includes('lip');
-    if (activeCategory === 'gums') return reg.id.includes('gingiva') || reg.id.includes('palate');
-    if (activeCategory === 'throat') return reg.id.includes('tonsil');
+    if (activeCategory === 'gums') return reg.id.includes('gingiva');
+    if (activeCategory === 'palate') return reg.id.includes('palate');
+    if (activeCategory === 'throat') return reg.id.includes('tonsil') || reg.id.includes('other');
     return true;
   });
 
@@ -210,22 +266,21 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
           <div>
             <h3 className="text-xs font-bold tracking-tight text-white flex items-center gap-2">
               <span>{isHindi ? 'मुँह का शारीरिक नक़्शा (Mouth Map)' : 'Oral Anatomy Location Selector'}</span>
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                {isHindi ? 'नैदानिक गाइड' : 'Clinical Reference'}
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-teal-300 border border-slate-700">
+                Multi-Location
               </span>
             </h3>
             <p className="text-[11px] text-slate-400">
               {isHindi
-                ? 'अपने लक्षण या तकलीफ़ का स्थान बताने के लिए क्षेत्र पर टैप करें'
+                ? 'अपने लक्षण या तकलीफ़ का स्थान बताने के लिए क्षेत्र पर टैप करें (एक या अधिक)'
                 : isHinglish
-                ? 'Apne symptom ya takleef ki jagah batane ke liye area tap karein'
-                : 'Select the anatomical area where you noticed the symptom'}
+                ? 'Apne symptom ki jagah batane ke liye area tap karein (1 ya multiple)'
+                : 'Select one or more anatomical areas where you noticed symptoms'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Top Cancel / Close Button (Requirement 5) */}
           <button
             type="button"
             onClick={handleCancel}
@@ -264,7 +319,6 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
               style={{ touchAction: 'manipulation' }}
             >
               <defs>
-                {/* Tooth enamel fill */}
                 <linearGradient id="toothEnamelClean" x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" stopColor="#ffffff" />
                   <stop offset="85%" stopColor="#f8fafc" />
@@ -282,7 +336,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 tabIndex={0}
                 aria-label="Tonsillar Region and Back of Throat"
                 aria-pressed={isSelected('tonsil_oropharynx')}
-                onClick={() => handleSelectRegion('tonsil_oropharynx')}
+                onClick={() => handleToggleRegion('tonsil_oropharynx')}
                 onKeyDown={(e) => handleKeyDown(e, 'tonsil_oropharynx')}
                 onFocus={() => setFocusedRegionId('tonsil_oropharynx')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -296,10 +350,8 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                   stroke={getStrokeColor('tonsil_oropharynx')}
                   strokeWidth={getStrokeWidth('tonsil_oropharynx')}
                 />
-                {/* Palatine Tonsils */}
                 <circle cx="152" cy="155" r="7" fill={isSelected('tonsil_oropharynx') ? '#0f766e' : '#fda4af'} />
                 <circle cx="248" cy="155" r="7" fill={isSelected('tonsil_oropharynx') ? '#0f766e' : '#fda4af'} />
-                {/* Uvula */}
                 <path
                   d="M 195 168 C 195 162, 205 162, 205 168 C 205 190, 195 190, 195 168 Z"
                   fill={isSelected('tonsil_oropharynx') ? '#0f766e' : '#fb7185'}
@@ -308,31 +360,52 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 />
               </g>
 
-              {/* 2. Hard & Soft Palate (Roof of the Mouth) */}
+              {/* 2a. Hard Palate */}
               <g
-                id="mouth-region-hard_soft_palate"
+                id="mouth-region-hard_palate"
                 role="button"
                 tabIndex={0}
-                aria-label="Roof of the Mouth (Palate)"
-                aria-pressed={isSelected('hard_soft_palate')}
-                onClick={() => handleSelectRegion('hard_soft_palate')}
-                onKeyDown={(e) => handleKeyDown(e, 'hard_soft_palate')}
-                onFocus={() => setFocusedRegionId('hard_soft_palate')}
+                aria-label="Hard Palate (Bony Roof of Mouth)"
+                aria-pressed={isSelected('hard_palate') || isSelected('hard_soft_palate')}
+                onClick={() => handleToggleRegion('hard_palate')}
+                onKeyDown={(e) => handleKeyDown(e, 'hard_palate')}
+                onFocus={() => setFocusedRegionId('hard_palate')}
                 onBlur={() => setFocusedRegionId(null)}
-                onMouseEnter={() => setHoveredRegionId('hard_soft_palate')}
+                onMouseEnter={() => setHoveredRegionId('hard_palate')}
                 onMouseLeave={() => setHoveredRegionId(null)}
                 className="cursor-pointer transition-all focus:outline-none"
               >
                 <path
-                  d="M 118 108 C 142 72, 258 72, 282 108 C 258 132, 230 142, 200 142 C 170 142, 142 132, 118 108 Z"
-                  fill={getFillColor('hard_soft_palate')}
-                  stroke={getStrokeColor('hard_soft_palate')}
-                  strokeWidth={getStrokeWidth('hard_soft_palate')}
+                  d="M 118 108 C 142 72, 258 72, 282 108 C 258 124, 230 130, 200 130 C 170 130, 142 124, 118 108 Z"
+                  fill={getFillColor('hard_palate')}
+                  stroke={getStrokeColor('hard_palate')}
+                  strokeWidth={getStrokeWidth('hard_palate')}
                 />
-                {/* Palatal Rugae subtle arches */}
-                <path d="M 160 102 Q 200 112 240 102" stroke="#d97706" strokeWidth="0.9" fill="none" opacity="0.35" />
-                <path d="M 172 116 Q 200 123 228 116" stroke="#d97706" strokeWidth="0.9" fill="none" opacity="0.35" />
-                <line x1="200" y1="88" x2="200" y2="140" stroke="#d97706" strokeWidth="0.9" strokeDasharray="3 2" opacity="0.4" />
+                <path d="M 160 98 Q 200 106 240 98" stroke="#d97706" strokeWidth="0.9" fill="none" opacity="0.35" />
+                <path d="M 172 110 Q 200 117 228 110" stroke="#d97706" strokeWidth="0.9" fill="none" opacity="0.35" />
+              </g>
+
+              {/* 2b. Soft Palate */}
+              <g
+                id="mouth-region-soft_palate"
+                role="button"
+                tabIndex={0}
+                aria-label="Soft Palate (Back Roof of Mouth)"
+                aria-pressed={isSelected('soft_palate')}
+                onClick={() => handleToggleRegion('soft_palate')}
+                onKeyDown={(e) => handleKeyDown(e, 'soft_palate')}
+                onFocus={() => setFocusedRegionId('soft_palate')}
+                onBlur={() => setFocusedRegionId(null)}
+                onMouseEnter={() => setHoveredRegionId('soft_palate')}
+                onMouseLeave={() => setHoveredRegionId(null)}
+                className="cursor-pointer transition-all focus:outline-none"
+              >
+                <path
+                  d="M 124 116 C 146 130, 254 130, 276 116 C 266 138, 234 148, 200 148 C 166 148, 134 138, 124 116 Z"
+                  fill={getFillColor('soft_palate')}
+                  stroke={getStrokeColor('soft_palate')}
+                  strokeWidth={getStrokeWidth('soft_palate')}
+                />
               </g>
 
               {/* 3. Upper Gums (Gingiva Upper) & Maxillary Teeth */}
@@ -342,7 +415,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 tabIndex={0}
                 aria-label="Upper Gums and Teeth"
                 aria-pressed={isSelected('gingiva_upper')}
-                onClick={() => handleSelectRegion('gingiva_upper')}
+                onClick={() => handleToggleRegion('gingiva_upper')}
                 onKeyDown={(e) => handleKeyDown(e, 'gingiva_upper')}
                 onFocus={() => setFocusedRegionId('gingiva_upper')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -356,7 +429,6 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                   stroke={getStrokeColor('gingiva_upper')}
                   strokeWidth={getStrokeWidth('gingiva_upper')}
                 />
-                {/* Maxillary Teeth Arch */}
                 <g opacity={isSelected('gingiva_upper') ? 0.45 : 0.95}>
                   <rect x="104" y="80" width="10" height="9" rx="2" fill="url(#toothEnamelClean)" stroke="#cbd5e1" strokeWidth="0.8" />
                   <rect x="116" y="76" width="10" height="10" rx="2" fill="url(#toothEnamelClean)" stroke="#cbd5e1" strokeWidth="0.8" />
@@ -384,7 +456,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 tabIndex={0}
                 aria-label="Left Inner Cheek (Buccal Mucosa)"
                 aria-pressed={isSelected('buccal_mucosa_left')}
-                onClick={() => handleSelectRegion('buccal_mucosa_left')}
+                onClick={() => handleToggleRegion('buccal_mucosa_left')}
                 onKeyDown={(e) => handleKeyDown(e, 'buccal_mucosa_left')}
                 onFocus={() => setFocusedRegionId('buccal_mucosa_left')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -408,7 +480,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 tabIndex={0}
                 aria-label="Right Inner Cheek (Buccal Mucosa)"
                 aria-pressed={isSelected('buccal_mucosa_right')}
-                onClick={() => handleSelectRegion('buccal_mucosa_right')}
+                onClick={() => handleToggleRegion('buccal_mucosa_right')}
                 onKeyDown={(e) => handleKeyDown(e, 'buccal_mucosa_right')}
                 onFocus={() => setFocusedRegionId('buccal_mucosa_right')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -432,7 +504,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 tabIndex={0}
                 aria-label="Floor of Mouth"
                 aria-pressed={isSelected('floor_of_mouth')}
-                onClick={() => handleSelectRegion('floor_of_mouth')}
+                onClick={() => handleToggleRegion('floor_of_mouth')}
                 onKeyDown={(e) => handleKeyDown(e, 'floor_of_mouth')}
                 onFocus={() => setFocusedRegionId('floor_of_mouth')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -456,7 +528,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 tabIndex={0}
                 aria-label="Tongue Dorsum (Center and Top of Tongue)"
                 aria-pressed={isSelected('tongue_dorsum')}
-                onClick={() => handleSelectRegion('tongue_dorsum')}
+                onClick={() => handleToggleRegion('tongue_dorsum')}
                 onKeyDown={(e) => handleKeyDown(e, 'tongue_dorsum')}
                 onFocus={() => setFocusedRegionId('tongue_dorsum')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -473,14 +545,14 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 <line x1="200" y1="192" x2="200" y2="258" stroke={isSelected('tongue_dorsum') ? '#0f766e' : '#f43f5e'} strokeWidth="1.4" strokeDasharray="3 2" opacity="0.6" />
               </g>
 
-              {/* 8. Left Side of Tongue (Lateral Border Left) */}
+              {/* 8. Left Side of Tongue */}
               <g
                 id="mouth-region-lateral_tongue_left"
                 role="button"
                 tabIndex={0}
                 aria-label="Left Side of Tongue"
                 aria-pressed={isSelected('lateral_tongue_left')}
-                onClick={() => handleSelectRegion('lateral_tongue_left')}
+                onClick={() => handleToggleRegion('lateral_tongue_left')}
                 onKeyDown={(e) => handleKeyDown(e, 'lateral_tongue_left')}
                 onFocus={() => setFocusedRegionId('lateral_tongue_left')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -497,14 +569,14 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 <line x1="134" y1="208" x2="146" y2="210" stroke={isSelected('lateral_tongue_left') ? '#0f766e' : '#be123c'} strokeWidth="1" opacity="0.5" />
               </g>
 
-              {/* 9. Right Side of Tongue (Lateral Border Right) */}
+              {/* 9. Right Side of Tongue */}
               <g
                 id="mouth-region-lateral_tongue_right"
                 role="button"
                 tabIndex={0}
                 aria-label="Right Side of Tongue"
                 aria-pressed={isSelected('lateral_tongue_right')}
-                onClick={() => handleSelectRegion('lateral_tongue_right')}
+                onClick={() => handleToggleRegion('lateral_tongue_right')}
                 onKeyDown={(e) => handleKeyDown(e, 'lateral_tongue_right')}
                 onFocus={() => setFocusedRegionId('lateral_tongue_right')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -521,14 +593,14 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 <line x1="266" y1="208" x2="254" y2="210" stroke={isSelected('lateral_tongue_right') ? '#0f766e' : '#be123c'} strokeWidth="1" opacity="0.5" />
               </g>
 
-              {/* 10. Lower Gums (Gingiva Lower) & Mandibular Teeth */}
+              {/* 10. Lower Gums (Gingiva Lower) */}
               <g
                 id="mouth-region-gingiva_lower"
                 role="button"
                 tabIndex={0}
                 aria-label="Lower Gums and Teeth"
                 aria-pressed={isSelected('gingiva_lower')}
-                onClick={() => handleSelectRegion('gingiva_lower')}
+                onClick={() => handleToggleRegion('gingiva_lower')}
                 onKeyDown={(e) => handleKeyDown(e, 'gingiva_lower')}
                 onFocus={() => setFocusedRegionId('gingiva_lower')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -542,7 +614,6 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                   stroke={getStrokeColor('gingiva_lower')}
                   strokeWidth={getStrokeWidth('gingiva_lower')}
                 />
-                {/* Lower Teeth Arch */}
                 <g opacity={isSelected('gingiva_lower') ? 0.45 : 0.95}>
                   <rect x="108" y="268" width="9.5" height="9" rx="2" fill="url(#toothEnamelClean)" stroke="#cbd5e1" strokeWidth="0.8" />
                   <rect x="120" y="272" width="10" height="9.5" rx="2" fill="url(#toothEnamelClean)" stroke="#cbd5e1" strokeWidth="0.8" />
@@ -570,7 +641,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 tabIndex={0}
                 aria-label="Upper Lip"
                 aria-pressed={isSelected('lip_upper')}
-                onClick={() => handleSelectRegion('lip_upper')}
+                onClick={() => handleToggleRegion('lip_upper')}
                 onKeyDown={(e) => handleKeyDown(e, 'lip_upper')}
                 onFocus={() => setFocusedRegionId('lip_upper')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -593,7 +664,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                 tabIndex={0}
                 aria-label="Lower Lip"
                 aria-pressed={isSelected('lip_lower')}
-                onClick={() => handleSelectRegion('lip_lower')}
+                onClick={() => handleToggleRegion('lip_lower')}
                 onKeyDown={(e) => handleKeyDown(e, 'lip_lower')}
                 onFocus={() => setFocusedRegionId('lip_lower')}
                 onBlur={() => setFocusedRegionId(null)}
@@ -618,44 +689,60 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
 
         {/* Right / Bottom Column: Location Summary Card, Actions, & Structured Region Chips */}
         <div className={`${isCompact ? 'w-full' : 'md:col-span-6'} flex flex-col space-y-3`}>
-          {/* Requirement 1 & 11: Location Summary Card or Initial Instruction State */}
-          {selectedRegion ? (
+          {/* Location Summary List or Initial Instruction State */}
+          {selectedRegions.length > 0 ? (
             <div
               id="mouth-map-selected-summary-card"
-              className="bg-white rounded-xl p-3.5 border-2 border-teal-600/40 shadow-xs space-y-2 transition-all"
+              className="bg-white rounded-xl p-3.5 border-2 border-teal-600/40 shadow-xs space-y-3 transition-all"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold tracking-wider uppercase text-teal-800 flex items-center gap-1">
                   <Check className="w-3 h-3 text-teal-600" />
-                  <span>{isHindi ? 'चयनित क्षेत्र' : 'Selected Area'}</span>
+                  <span>
+                    {isHindi ? `चयनित क्षेत्र (${selectedRegions.length})` : `Selected Locations (${selectedRegions.length})`}
+                  </span>
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold border border-teal-200">
-                  {isHindi ? 'मरीज़ द्वारा चुना गया' : 'Patient Selected'}
+                  {isHindi ? 'मरीज़ द्वारा चयनित' : 'Patient Selected'}
                 </span>
               </div>
 
-              <div>
-                <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                  {selectedRegion.name}
-                </h4>
-                <p className="text-xs text-teal-800 font-medium mt-0.5">
-                  {selectedRegion.hindiName}
-                </p>
+              {/* List of selected locations with remove buttons */}
+              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                {selectedRegions.map((reg) => (
+                  <div
+                    key={reg.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-teal-50/60 border border-teal-200 text-xs"
+                  >
+                    <div className="truncate mr-2">
+                      <span className="font-semibold text-slate-900 block truncate">{reg.name}</span>
+                      <span className="text-[10.5px] text-teal-700 block truncate">{reg.hindiName}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveRegion(reg.id, e)}
+                      title="Remove this location"
+                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
 
-              {/* Requirement 14: Clear statement that this is a reported area, NOT a cancer diagnosis */}
+              {/* Medical Notice */}
               <div className="flex items-start gap-1.5 p-2 bg-slate-50 rounded-lg text-[10.5px] text-slate-600 border border-slate-100">
                 <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                 <span>
                   {isHindi
-                    ? 'मरीज़ द्वारा सूचित चिंता का क्षेत्र। यह केवल स्थान का रिकॉर्ड है, कोई चिकित्सकीय निदान नहीं है।'
+                    ? 'मरीज़ द्वारा सूचित चिंता के क्षेत्र। यह केवल स्थान का रिकॉर्ड है, कोई चिकित्सकीय निदान नहीं है।'
                     : isHinglish
-                    ? 'Patient-reported area of concern. Yeh sirf location record hai, koi diagnosis nahi hai.'
-                    : 'Patient-reported area of concern. This records the reported site for doctor reference, not a confirmed condition or diagnosis.'}
+                    ? 'Patient-reported areas of concern. Yeh sirf location record hai, koi diagnosis nahi hai.'
+                    : 'Patient-reported areas of concern. This records the reported sites for doctor reference, not a confirmed condition or diagnosis.'}
                 </span>
               </div>
 
-              {/* Primary Actions: Confirm, Clear, Cancel (Requirement 4, 5, 6, 11) */}
+              {/* Primary Actions: Confirm, Clear, Cancel */}
               <div className="pt-1 flex flex-col gap-2">
                 <button
                   type="button"
@@ -666,10 +753,10 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                   <Check className="w-4 h-4" />
                   <span>
                     {isHindi
-                      ? 'इस स्थान की पुष्टि करें'
+                      ? `इन स्थानों की पुष्टि करें (${selectedRegions.length})`
                       : isHinglish
-                      ? 'Location Confirm Karein'
-                      : 'Confirm Location'}
+                      ? `Locations Confirm Karein (${selectedRegions.length})`
+                      : `Confirm ${selectedRegions.length > 1 ? `${selectedRegions.length} Locations` : 'Location'}`}
                   </span>
                 </button>
 
@@ -681,7 +768,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                     className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{isHindi ? 'चयन साफ़ करें' : isHinglish ? 'Clear Selection' : 'Clear Selection'}</span>
+                    <span>{isHindi ? 'सभी साफ़ करें' : 'Clear All'}</span>
                   </button>
 
                   <button
@@ -696,7 +783,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
               </div>
             </div>
           ) : (
-            /* Requirement 1: Initial state - clear instruction, NO default selection */
+            /* Initial state - clear instruction, NO default selection */
             <div
               id="mouth-map-instruction-banner"
               className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs space-y-2.5 text-center sm:text-left"
@@ -710,16 +797,16 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                     ? 'उस क्षेत्र का चयन करें जहाँ आपने लक्षण देखा है।'
                     : isHinglish
                     ? 'Woh area select karein jahan aapne symptom notice kiya.'
-                    : 'Select the area where you noticed the symptom.'}
+                    : 'Select the area(s) where you noticed symptoms.'}
                 </h4>
               </div>
 
               <p className="text-[11px] text-slate-500 leading-relaxed">
                 {isHindi
-                  ? 'मुँह के चित्र पर उस भाग को छुएं, या नीचे दी गई सूची में से चुन सकते हैं। यदि आपको सटीक स्थान की पहचान नहीं है, तो "निश्चित नहीं" विकल्प चुनें।'
+                  ? 'मुँह के चित्र पर भागों को छुएं, या नीचे दी गई सूची में से चुनें। आप एक से अधिक क्षेत्र भी चुन सकते हैं। यदि आपको सटीक स्थान की पहचान नहीं है, तो "निश्चित नहीं" विकल्प चुनें।'
                   : isHinglish
-                  ? 'Mouth map diagram par tap karein ya neeche di gayi list se select karein. Agar exact jagah confirm nahi hai toh "Not sure" chunein.'
-                  : 'Tap an anatomical zone on the diagram above or select an area from the categories below. If you cannot pinpoint the exact spot, tap "Not sure".'}
+                  ? 'Diagram par tap karein ya neeche di gayi list se select karein. Ek se zyada areas bhi select kar sakte hain. Exact spot na pata ho toh "Not sure" chunein.'
+                  : 'Tap anatomical zones on the diagram or select areas from the list below. You can select multiple areas. If unsure, tap "Not sure".'}
               </p>
 
               {/* Disabled Confirm button when no location selected + Cancel button */}
@@ -746,13 +833,13 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                   id="btn-cancel-location-initial"
                   className="w-full py-2 px-3 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
-                  <span>{isHindi ? 'रद्द करें (स्क्रीनिंग पर वापस जाएँ)' : 'Cancel (Return to Screening)'}</span>
+                  <span>{isHindi ? 'रद्द करें' : 'Cancel'}</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* Requirement 7: Dedicated "Not sure / I can't identify exact area" Option */}
+          {/* Dedicated "Not sure / I can't identify exact area" Option */}
           <div className="pt-0.5">
             <button
               type="button"
@@ -775,62 +862,29 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
             </button>
           </div>
 
-          {/* Requirement 9 & 10: Structured Anatomical Categories & Touch-Friendly List */}
+          {/* Structured Anatomical Categories & Touch-Friendly List */}
           <div className="space-y-1.5 pt-1">
             <div className="flex items-center justify-between">
               <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
                 {isHindi ? 'सभी मौखिक क्षेत्र' : 'Browse Oral Regions'}
               </span>
-              <div className="flex gap-1 text-[10px]" role="tablist">
-                <button
-                  type="button"
-                  onClick={() => setActiveCategory('all')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer ${
-                    activeCategory === 'all' ? 'bg-teal-100 text-teal-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveCategory('tongue')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer ${
-                    activeCategory === 'tongue' ? 'bg-teal-100 text-teal-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Tongue
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveCategory('cheek')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer ${
-                    activeCategory === 'cheek' ? 'bg-teal-100 text-teal-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Cheek / Lips
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveCategory('gums')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer ${
-                    activeCategory === 'gums' ? 'bg-teal-100 text-teal-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Gums
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveCategory('throat')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer ${
-                    activeCategory === 'throat' ? 'bg-teal-100 text-teal-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Throat
-                </button>
+              <div className="flex gap-1 text-[10px] overflow-x-auto pb-0.5" role="tablist">
+                {(['all', 'tongue', 'cheek', 'gums', 'palate', 'throat'] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-1.5 py-0.5 rounded capitalize cursor-pointer shrink-0 ${
+                      activeCategory === cat ? 'bg-teal-100 text-teal-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Mobile-optimized region buttons: min-h-[44px] for clear touch targeting */}
+            {/* Mobile-optimized region buttons: min-h-[44px] */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
               {filteredChips.map((reg) => {
                 const selected = isSelected(reg.id);
@@ -838,7 +892,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                   <button
                     key={reg.id}
                     type="button"
-                    onClick={() => handleSelectRegion(reg.id)}
+                    onClick={() => handleToggleRegion(reg.id)}
                     id={`btn-chip-${reg.id}`}
                     aria-pressed={selected}
                     className={`min-h-[44px] p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
@@ -855,13 +909,18 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
                         {reg.hindiName.split('(')[0]}
                       </span>
                     </div>
-                    {selected ? (
-                      <span className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0">
-                        <Check className="w-3 h-3" />
-                      </span>
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
-                    )}
+
+                    <div className="shrink-0 flex items-center">
+                      {selected ? (
+                        <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center">
+                          <Check className="w-3 h-3" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
+                          <Plus className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
                   </button>
                 );
               })}

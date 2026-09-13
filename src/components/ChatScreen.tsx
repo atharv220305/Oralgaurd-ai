@@ -1,3 +1,10 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * ChatScreen: Conversational Oral Screening dialogue with 3-language toggle (EN, हिन्दी, मराठी),
+ * single source of truth `screeningSession`, and direct access to Scanner, Mouth Map, and Tracker.
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Send,
@@ -16,9 +23,24 @@ import {
   X,
   ClipboardList,
   CheckCircle2,
+  Camera,
+  Activity,
+  HeartHandshake,
+  BookOpen,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChatMessage, PatientProfile, ClinicalIndicators, DemoTestCase, OralRegion, ScreeningSession } from '../types';
+import {
+  ChatMessage,
+  PatientProfile,
+  ClinicalIndicators,
+  DemoTestCase,
+  OralRegion,
+  ScreeningSession,
+  PhotoDocumentationItem,
+  SymptomProgressEntry,
+  MouthMapLocationItem,
+  AppLanguage,
+} from '../types';
 import {
   INITIAL_BOT_MESSAGE,
   INITIAL_BOT_MESSAGE_EN,
@@ -30,12 +52,28 @@ import {
 } from '../data/clinicalKnowledge';
 import { generateAdaptiveDialogueTurn } from '../data/conversationalEngine';
 import { InteractiveMouthMap } from './InteractiveMouthMap';
+import { MouthScannerScreen } from './MouthScannerScreen';
+import { SymptomProgressTracker } from './SymptomProgressTracker';
+
+export const INITIAL_BOT_MESSAGE_MR: ChatMessage = {
+  id: 'bot-initial-mr',
+  role: 'assistant',
+  content:
+    'नमस्कार! मी ओरलगार्ड एआय (OralGuard AI) चा प्राथमिक तपासणी सहाय्यक आहे.\n\nकृपया आपल्या तोंडातील कोणत्याही लक्षणाबद्दल सांगा — जसे की कोणताही फोड, अल्सर (छाला), लाल किंवा पांढरा डाग, गाठ, किंवा गिळताना त्रास. आपण केव्हापासून हा बदल अनुभवत आहात?',
+  timestamp: 'Just now',
+  quickReplies: [
+    'तोंडातील छाला / अल्सर',
+    'पांढरा किंवा लाल डाग',
+    'तोंड उघडण्यास त्रास (Trismus)',
+    'नियमित तपासणी / कोणतीही समस्या नाही',
+  ],
+};
 
 const SESSION_STORAGE_KEY = 'oralguard_persistent_screening_session_v2';
 
 function loadPersistentScreeningSession(
   fallbackIndicators: PatientProfile,
-  fallbackLang: 'en' | 'hinglish' | 'hi'
+  fallbackLang: AppLanguage
 ): ScreeningSession {
   if (typeof window !== 'undefined' && window.sessionStorage) {
     try {
@@ -56,7 +94,7 @@ function loadPersistentScreeningSession(
       ? INITIAL_BOT_MESSAGE_EN.content
       : fallbackLang === 'hi'
       ? INITIAL_BOT_MESSAGE_HI.content
-      : INITIAL_BOT_MESSAGE.content;
+      : INITIAL_BOT_MESSAGE_MR.content;
 
   return {
     sessionId: `session-${Date.now()}`,
@@ -86,7 +124,11 @@ interface ChatScreenProps {
   onCompleteScreening: (profile: PatientProfile) => void;
   indicators: PatientProfile;
   setIndicators: React.Dispatch<React.SetStateAction<PatientProfile>>;
-  initialLanguage?: 'en' | 'hinglish' | 'hi';
+  initialLanguage?: AppLanguage;
+  onOpenCessation?: () => void;
+  onOpenAwarenessHub?: () => void;
+  onOpenAskOralGuard?: () => void;
+  onOpenFollowUp?: () => void;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
@@ -94,21 +136,27 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   indicators,
   setIndicators,
   initialLanguage,
+  onOpenCessation,
+  onOpenAwarenessHub,
+  onOpenAskOralGuard,
+  onOpenFollowUp,
 }) => {
-  const activeInitialLang = initialLanguage || indicators.detectedLanguage || 'hinglish';
-  const [selectedLanguage, setSelectedLanguage] = useState<'hinglish' | 'en' | 'hi'>(activeInitialLang);
+  const activeInitialLang: AppLanguage = (initialLanguage || indicators.detectedLanguage || 'en') as AppLanguage;
+  const [selectedLanguage, setSelectedLanguage] = useState<AppLanguage>(activeInitialLang);
   const [messages, setMessages] = useState<ChatMessage[]>([
     activeInitialLang === 'en'
       ? INITIAL_BOT_MESSAGE_EN
       : activeInitialLang === 'hi'
       ? INITIAL_BOT_MESSAGE_HI
-      : INITIAL_BOT_MESSAGE,
+      : INITIAL_BOT_MESSAGE_MR,
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [exchangesCount, setExchangesCount] = useState(0);
   const [showDemoCases, setShowDemoCases] = useState(false);
   const [showMouthMap, setShowMouthMap] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showTracker, setShowTracker] = useState(false);
 
   // Persistent screening session state tracking structured clinical context across turns
   const [screeningSession, setScreeningSession] = useState<ScreeningSession>(() =>
@@ -128,7 +176,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           ? INITIAL_BOT_MESSAGE_EN
           : selectedLanguage === 'hi'
           ? INITIAL_BOT_MESSAGE_HI
-          : INITIAL_BOT_MESSAGE;
+          : INITIAL_BOT_MESSAGE_MR;
 
       const freshSession: ScreeningSession = {
         sessionId: `session-${Date.now()}`,
@@ -160,27 +208,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // Handle oral map confirmed selection (Requirement 6, 12, 14)
-  const handleConfirmLocationFromMap = (region: OralRegion) => {
-    const isUnknown = region.id === 'unknown_location';
-    const locationName = isUnknown ? 'Not sure / Unspecified' : region.name;
-    const updatedRegions = isUnknown ? [] : [region.id];
+  // Handle oral map confirmed selection (Multi-Location Support)
+  const handleConfirmMultipleLocationsFromMap = (regions: OralRegion[]) => {
+    if (regions.length === 0) return;
+    const isUnknown = regions.some((r) => r.id === 'unknown_location');
+    const locationItems: MouthMapLocationItem[] = isUnknown
+      ? [{ id: 'unknown_location', area: 'Not sure / Unspecified', hindiName: 'सटीक स्थान ज्ञात नहीं', marathiName: 'सटीक जागा माहित नाही', confirmed: true }]
+      : regions.map((r) => ({ id: r.id, area: r.name, hindiName: r.hindiName, marathiName: r.marathiName, confirmed: true }));
 
-    // Requirement 14: DO NOT automatically set hasLesionOrUlcer = true
+    const locationNames = isUnknown ? 'Not sure / Unspecified' : regions.map((r) => r.name).join(', ');
+    const regionIds = isUnknown ? [] : regions.map((r) => r.id);
+
     const updated: PatientProfile = {
       ...indicators,
       detectedLanguage: selectedLanguage,
-      affectedRegions: updatedRegions,
-      primarySymptomLocation: locationName,
+      affectedRegions: regionIds,
+      primarySymptomLocation: locationNames,
+      mouthMapLocations: locationItems,
     };
 
     setIndicators(updated);
 
-    // Requirement 12: Integrate with existing screening session state
     setScreeningSession((curr) => {
       const nextSession: ScreeningSession = {
         ...curr,
-        mouthMapLocation: isUnknown ? 'unknown' : region.id,
+        mouthMapLocation: isUnknown ? 'unknown' : regions[0].id,
+        mouthMapLocations: locationItems,
         profile: updated,
         lastUpdatedAt: Date.now(),
       };
@@ -190,29 +243,33 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     setShowMouthMap(false);
 
-    // Send contextual confirmation to chat in selected language
     const messageContent = isUnknown
       ? (selectedLanguage === 'hi'
           ? 'मैंने मुँह के नक़्शे (Mouth Map) पर बताया कि मुझे सटीक स्थान की पहचान नहीं है।'
-          : selectedLanguage === 'hinglish'
-          ? 'Maine oral map par select kiya ki mujhe exact area pata nahi hai.'
+          : selectedLanguage === 'mr'
+          ? 'मी माउथ मॅपवर सांगितले की मला नेमकी जागा निश्चित माहिती नाही.'
           : 'I indicated on the oral anatomy map that I am not sure of the exact location.')
       : (selectedLanguage === 'hi'
-          ? `मैंने मुँह के नक़्शे (Mouth Map) पर "${region.name} (${region.hindiName})" का चयन किया है।`
-          : selectedLanguage === 'hinglish'
-          ? `Maine oral anatomy map par "${region.name}" select kiya hai.`
-          : `I confirmed ${region.name} on the oral anatomy map.`);
+          ? `मैंने मुँह के नक़्शे (Mouth Map) पर ${regions.length > 1 ? `${regions.length} स्थान` : ''} चिह्नित किए: ${regions.map((r) => `${r.name} (${r.hindiName})`).join(', ')}`
+          : selectedLanguage === 'mr'
+          ? `मी माउथ मॅपवर ${regions.length > 1 ? `${regions.length} जागा` : 'जागा'} निवडल्या: ${regions.map((r) => `${r.name} (${r.marathiName || r.hindiName})`).join(', ')}`
+          : `I confirmed ${regions.length > 1 ? `${regions.length} locations` : 'location'} on the mouth map: ${regions.map((r) => r.name).join(', ')}`);
 
     handleSendMessage(messageContent);
   };
 
-  // Requirement 4: Clear location from screening session
+  const handleConfirmLocationFromMap = (region: OralRegion) => {
+    handleConfirmMultipleLocationsFromMap([region]);
+  };
+
+  // Clear location from screening session
   const handleClearLocationFromMap = () => {
     const updated: PatientProfile = {
       ...indicators,
       detectedLanguage: selectedLanguage,
       affectedRegions: [],
       primarySymptomLocation: undefined,
+      mouthMapLocations: [],
     };
 
     setIndicators(updated);
@@ -221,6 +278,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const nextSession: ScreeningSession = {
         ...curr,
         mouthMapLocation: null,
+        mouthMapLocations: [],
         profile: updated,
         lastUpdatedAt: Date.now(),
       };
@@ -229,13 +287,114 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     });
   };
 
-  // Requirement 5: Cancel mouth map without changing previously confirmed state
   const handleCancelMouthMap = () => {
     setShowMouthMap(false);
   };
 
+  // Feature 1: Photo Documentation Handlers
+  const handleSavePhotoDocumentation = (photo: PhotoDocumentationItem) => {
+    const currentPhotos = screeningSession.photoDocumentation || screeningSession.profile.photoDocumentation || [];
+    const updatedPhotos = [...currentPhotos.filter((p) => p.id !== photo.id), photo];
+
+    const updatedProfile: PatientProfile = {
+      ...indicators,
+      photoDocumentation: updatedPhotos,
+    };
+    setIndicators(updatedProfile);
+
+    setScreeningSession((curr) => {
+      const nextSession: ScreeningSession = {
+        ...curr,
+        photoDocumentation: updatedPhotos,
+        profile: {
+          ...curr.profile,
+          photoDocumentation: updatedPhotos,
+        },
+        lastUpdatedAt: Date.now(),
+      };
+      persistScreeningSession(nextSession);
+      return nextSession;
+    });
+  };
+
+  const handleDeletePhotoDocumentation = (id: string) => {
+    const currentPhotos = screeningSession.photoDocumentation || screeningSession.profile.photoDocumentation || [];
+    const updatedPhotos = currentPhotos.filter((p) => p.id !== id);
+
+    const updatedProfile: PatientProfile = {
+      ...indicators,
+      photoDocumentation: updatedPhotos,
+    };
+    setIndicators(updatedProfile);
+
+    setScreeningSession((curr) => {
+      const nextSession: ScreeningSession = {
+        ...curr,
+        photoDocumentation: updatedPhotos,
+        profile: {
+          ...curr.profile,
+          photoDocumentation: updatedPhotos,
+        },
+        lastUpdatedAt: Date.now(),
+      };
+      persistScreeningSession(nextSession);
+      return nextSession;
+    });
+  };
+
+  // Feature 3: Symptom Progress Tracking Handlers
+  const handleAddSymptomProgressEntry = (entry: SymptomProgressEntry) => {
+    const currentEntries = screeningSession.symptomProgress || screeningSession.profile.symptomProgress || [];
+    const updatedEntries = [...currentEntries.filter((e) => e.id !== entry.id), entry];
+
+    const updatedProfile: PatientProfile = {
+      ...indicators,
+      symptomProgress: updatedEntries,
+    };
+    setIndicators(updatedProfile);
+
+    setScreeningSession((curr) => {
+      const nextSession: ScreeningSession = {
+        ...curr,
+        symptomProgress: updatedEntries,
+        profile: {
+          ...curr.profile,
+          symptomProgress: updatedEntries,
+        },
+        lastUpdatedAt: Date.now(),
+      };
+      persistScreeningSession(nextSession);
+      return nextSession;
+    });
+  };
+
+  const handleDeleteSymptomProgressEntry = (id: string) => {
+    const currentEntries = screeningSession.symptomProgress || screeningSession.profile.symptomProgress || [];
+    const updatedEntries = currentEntries.filter((e) => e.id !== id);
+
+    const updatedProfile: PatientProfile = {
+      ...indicators,
+      symptomProgress: updatedEntries,
+    };
+    setIndicators(updatedProfile);
+
+    setScreeningSession((curr) => {
+      const nextSession: ScreeningSession = {
+        ...curr,
+        symptomProgress: updatedEntries,
+        profile: {
+          ...curr.profile,
+          symptomProgress: updatedEntries,
+        },
+        lastUpdatedAt: Date.now(),
+      };
+      persistScreeningSession(nextSession);
+      return nextSession;
+    });
+  };
+
   // Handle language switch
-  const handleLanguageToggle = (lang: 'hinglish' | 'en' | 'hi') => {
+  const handleLanguageToggle = (lang: AppLanguage) => {
     setSelectedLanguage(lang);
     const updated: PatientProfile = { ...indicators, detectedLanguage: lang };
     setIndicators(updated);
@@ -245,7 +404,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         ? INITIAL_BOT_MESSAGE_EN
         : lang === 'hi'
         ? INITIAL_BOT_MESSAGE_HI
-        : INITIAL_BOT_MESSAGE;
+        : INITIAL_BOT_MESSAGE_MR;
 
     setScreeningSession((curr) => {
       const nextSession = {
@@ -267,7 +426,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const handleSelectTestCase = (testCase: DemoTestCase) => {
     setShowDemoCases(false);
     setInputText(testCase.initialMessage);
-    // Focus input so judge can see it or hit send
     setTimeout(() => {
       inputRef.current?.focus();
     }, 100);
@@ -298,7 +456,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       screeningSession.lastAssistantQuestion ||
       [...messages].reverse().find((m) => m.role === 'assistant')?.content;
 
-    const profileWithLockedLanguage = {
+    const profileWithLockedLanguage: PatientProfile = {
       ...screeningSession.profile,
       detectedLanguage: selectedLanguage,
     };
@@ -345,6 +503,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       content.toLowerCase().includes('view my screening') ||
       content.toLowerCase().includes('view result') ||
       content.toLowerCase().includes('result dekhein') ||
+      content.toLowerCase().includes(' निकाल') ||
       content.toLowerCase().includes('check result') ||
       content.toLowerCase().includes('assessment');
 
@@ -392,11 +551,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
 
     // 4. Construct a filtered context window for the assistant API before triggering prompt.
-    // Ensure previously answered clinical indicators are filtered out of the assistant's
-    // context window to prevent repeated questions.
     const filteredContextMessages: Array<{ role: string; content: string }> = [];
 
-    // Provide structured clinical filter context
     filteredContextMessages.push({
       role: 'user',
       content: `[CLINICAL ASSESSMENT MEMORY & CONTEXT FILTER]
@@ -416,7 +572,6 @@ ${
 Patient's latest message: "${content}"`,
     });
 
-    // Prune previous model questions that inquired about now-answered indicators
     const recentDialogueTurns = newHistory.slice(-4);
     for (const msg of recentDialogueTurns) {
       if (msg.role === 'assistant') {
@@ -464,7 +619,6 @@ Patient's latest message: "${content}"`,
 
           let replyText = data.reply;
 
-          // If clinical screening is complete, ensure completion message is presented
           if (turn.isReadyForEvaluation) {
             replyText = turn.replyText;
           }
@@ -532,7 +686,7 @@ Patient's latest message: "${content}"`,
     setIsTyping(false);
   };
 
-  // Screening Progress Tracking (Single Source of Truth: getScreeningQuestionsStatus)
+  // Screening Progress Tracking
   const screeningEvalState = getScreeningQuestionsStatus(indicators);
   const {
     stage1Completed,
@@ -547,7 +701,7 @@ Patient's latest message: "${content}"`,
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative">
-      {/* Top Screening Status & Judge Demo Bar */}
+      {/* Top Screening Status & Quick Tools Bar */}
       <div className="bg-white px-3.5 py-2 border-b border-slate-200/90 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
@@ -556,35 +710,35 @@ Patient's latest message: "${content}"`,
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Language selector */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Language selector with EN, हिन्दी, मराठी */}
           <div className="flex items-center rounded-lg bg-slate-100 p-0.5 text-[10px] font-medium text-slate-600">
+            <button
+              onClick={() => handleLanguageToggle('en')}
+              aria-label="Switch language to English"
+              className={`px-1.5 py-0.5 rounded-md transition-colors cursor-pointer ${
+                selectedLanguage === 'en' ? 'bg-white text-teal-800 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              EN
+            </button>
             <button
               onClick={() => handleLanguageToggle('hi')}
               aria-label="Switch language to Hindi"
-              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+              className={`px-1.5 py-0.5 rounded-md transition-colors cursor-pointer ${
                 selectedLanguage === 'hi' ? 'bg-white text-teal-800 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               हिन्दी
             </button>
             <button
-              onClick={() => handleLanguageToggle('hinglish')}
-              aria-label="Switch language to Hinglish"
-              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
-                selectedLanguage === 'hinglish' ? 'bg-white text-teal-800 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
+              onClick={() => handleLanguageToggle('mr')}
+              aria-label="Switch language to Marathi"
+              className={`px-1.5 py-0.5 rounded-md transition-colors cursor-pointer ${
+                selectedLanguage === 'mr' ? 'bg-white text-teal-800 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Hinglish
-            </button>
-            <button
-              onClick={() => handleLanguageToggle('en')}
-              aria-label="Switch language to English"
-              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
-                selectedLanguage === 'en' ? 'bg-white text-teal-800 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              English
+              मराठी
             </button>
           </div>
 
@@ -593,7 +747,7 @@ Patient's latest message: "${content}"`,
             onClick={() => setShowMouthMap(!showMouthMap)}
             id="btn-toggle-mouth-map"
             title="Interactive Mouth Map: Click or tap specific oral regions"
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
               showMouthMap
                 ? 'bg-teal-700 text-white border-teal-800 shadow-2xs'
                 : indicators.primarySymptomLocation
@@ -602,13 +756,55 @@ Patient's latest message: "${content}"`,
             }`}
           >
             <MapPin className="w-3 h-3 text-teal-600" />
-            <span className="hidden xs:inline">Mouth Map</span>
-            {indicators.primarySymptomLocation && (
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+            <span className="hidden sm:inline">Mouth Map</span>
+            {(screeningSession.mouthMapLocations?.length || (indicators.primarySymptomLocation ? 1 : 0)) > 0 && (
+              <span className="px-1 py-0.2 rounded-full bg-teal-600 text-white text-[9px] font-bold">
+                {screeningSession.mouthMapLocations?.length || 1}
+              </span>
             )}
           </button>
 
-          {/* Judge Demo Presets Button */}
+          {/* Photo Scanner Button */}
+          <button
+            onClick={() => setShowScanner(true)}
+            id="btn-toggle-photo-scanner"
+            title="Photo Documentation: Capture or upload mouth photos"
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
+              (screeningSession.photoDocumentation?.length || 0) > 0
+                ? 'bg-indigo-50 text-indigo-800 border-indigo-300'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Camera className="w-3 h-3 text-indigo-600" />
+            <span className="hidden sm:inline">Scanner</span>
+            {(screeningSession.photoDocumentation?.length || 0) > 0 && (
+              <span className="px-1 py-0.2 rounded-full bg-indigo-600 text-white text-[9px] font-bold">
+                {screeningSession.photoDocumentation?.length}
+              </span>
+            )}
+          </button>
+
+          {/* Symptom Tracker Button */}
+          <button
+            onClick={() => setShowTracker(true)}
+            id="btn-toggle-symptom-tracker"
+            title="Symptom Tracker: Log status changes over time"
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
+              (screeningSession.symptomProgress?.length || 0) > 0
+                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Activity className="w-3 h-3 text-amber-600" />
+            <span className="hidden sm:inline">Tracker</span>
+            {(screeningSession.symptomProgress?.length || 0) > 0 && (
+              <span className="px-1 py-0.2 rounded-full bg-amber-600 text-white text-[9px] font-bold">
+                {screeningSession.symptomProgress?.length}
+              </span>
+            )}
+          </button>
+
+          {/* Presets Button */}
           <button
             onClick={() => setShowDemoCases(!showDemoCases)}
             id="btn-demo-test-cases"
@@ -616,13 +812,13 @@ Patient's latest message: "${content}"`,
             className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 transition-all cursor-pointer"
           >
             <Sparkles className="w-3 h-3 text-amber-600" />
-            <span className="font-semibold">Demo / Evaluation Cases</span>
+            <span className="hidden sm:inline font-semibold">Presets</span>
             <ChevronDown className={`w-3 h-3 transition-transform ${showDemoCases ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Interactive Mouth Map Drawer / Viewer */}
+      {/* Interactive Mouth Map Drawer */}
       <AnimatePresence>
         {showMouthMap && (
           <motion.div
@@ -634,7 +830,9 @@ Patient's latest message: "${content}"`,
             <InteractiveMouthMap
               confirmedLocation={indicators.primarySymptomLocation}
               confirmedRegionId={screeningSession.mouthMapLocation}
+              confirmedLocations={screeningSession.mouthMapLocations || indicators.mouthMapLocations}
               onConfirmLocation={handleConfirmLocationFromMap}
+              onConfirmMultipleLocations={handleConfirmMultipleLocationsFromMap}
               onClearLocation={handleClearLocationFromMap}
               onCancel={handleCancelMouthMap}
               onClose={handleCancelMouthMap}
@@ -644,7 +842,58 @@ Patient's latest message: "${content}"`,
         )}
       </AnimatePresence>
 
-      {/* Demo Test Cases Drawer / Popover for Judges */}
+      {/* Photo Scanner Modal */}
+      <AnimatePresence>
+        {showScanner && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+            >
+              <MouthScannerScreen
+                photos={screeningSession.photoDocumentation || indicators.photoDocumentation || []}
+                onSavePhoto={handleSavePhotoDocumentation}
+                onDeletePhoto={handleDeletePhotoDocumentation}
+                availableMouthLocations={screeningSession.mouthMapLocations || indicators.mouthMapLocations || []}
+                onOpenMouthMap={() => {
+                  setShowScanner(false);
+                  setShowMouthMap(true);
+                }}
+                onClose={() => setShowScanner(false)}
+                language={selectedLanguage}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Symptom & Progress Tracker Modal */}
+      <AnimatePresence>
+        {showTracker && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+            >
+              <SymptomProgressTracker
+                entries={screeningSession.symptomProgress || indicators.symptomProgress || []}
+                onAddEntry={handleAddSymptomProgressEntry}
+                onDeleteEntry={handleDeleteSymptomProgressEntry}
+                screeningProfile={indicators}
+                availableMouthLocations={screeningSession.mouthMapLocations || indicators.mouthMapLocations || []}
+                onClose={() => setShowTracker(false)}
+                language={selectedLanguage}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Demo Test Cases Drawer */}
       <AnimatePresence>
         {showDemoCases && (
           <motion.div
@@ -686,7 +935,7 @@ Patient's latest message: "${content}"`,
         )}
       </AnimatePresence>
 
-      {/* Visual Screening Progress Bar (Requirement 2) */}
+      {/* Visual Screening Progress Bar */}
       <div className="bg-white border-b border-slate-200 px-3.5 py-2 space-y-1.5 shadow-2xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
@@ -799,7 +1048,7 @@ Patient's latest message: "${content}"`,
           <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
           <div>
             <span className="font-bold">Potentially Urgent Symptom Detected: </span>
-            <span>{indicators.emergencyReason || 'Acute airway or breathing difficulty reported'}. Please seek immediate emergency medical care.</span>
+            <span>{indicators.emergencyReason || 'Acute airway or severe symptom reported'}. Please seek immediate emergency medical care.</span>
           </div>
         </div>
       )}
@@ -845,7 +1094,7 @@ Patient's latest message: "${content}"`,
                     <p className="whitespace-pre-line">{msg.content}</p>
                   </div>
 
-                  {/* Quick Reply Chips (Only rendered on the active latest assistant message) */}
+                  {/* Quick Reply Chips */}
                   {isAssistant && index === messages.length - 1 && !isTyping && msg.quickReplies && msg.quickReplies.length > 0 && (
                     <div className="mt-2.5 flex flex-wrap gap-1.5 max-w-sm">
                       {msg.quickReplies.map((chip, idx) => (
@@ -877,7 +1126,7 @@ Patient's latest message: "${content}"`,
           );
         })}
 
-        {/* Professional 'Analyzing your response…' Loading Indicator */}
+        {/* Loading Indicator */}
         <AnimatePresence>
           {isTyping && (
             <motion.div
@@ -928,7 +1177,7 @@ Patient's latest message: "${content}"`,
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Ready Banner when sufficient info has been gathered */}
+      {/* Ready Banner */}
       {isReadyToComplete && (
         <div className="px-4 py-2 bg-gradient-to-r from-teal-50 to-emerald-50 border-t border-teal-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -951,39 +1200,122 @@ Patient's latest message: "${content}"`,
         </div>
       )}
 
-      {/* Pinpointed Oral Location Indicator */}
-      {indicators.primarySymptomLocation ? (
-        <div className="px-3.5 py-1.5 bg-teal-50/90 border-t border-teal-200/90 flex items-center justify-between text-[11px]">
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="w-2 h-2 rounded-full bg-teal-600 shrink-0 animate-pulse" />
-            <span className="text-slate-500 font-medium">Pinpointed Location:</span>
-            <span className="font-bold text-teal-950 truncate">
-              {indicators.primarySymptomLocation}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowMouthMap(true)}
-            className="text-teal-700 hover:text-teal-900 font-semibold underline text-[10.5px] shrink-0 cursor-pointer ml-2 flex items-center gap-0.5"
-          >
-            <span>Change</span>
-          </button>
-        </div>
-      ) : (
-        <div className="px-3.5 py-1 bg-slate-50/90 border-t border-slate-200/70 flex items-center justify-between text-[10.5px] text-slate-500">
-          <span>Have an exact spot in your mouth?</span>
-          <button
-            type="button"
-            onClick={() => setShowMouthMap(true)}
-            className="text-teal-700 hover:text-teal-900 font-semibold flex items-center gap-1 cursor-pointer"
-          >
-            <MapPin className="w-3 h-3 text-teal-600" />
-            <span>Open Mouth Map</span>
-          </button>
-        </div>
-      )}
+      {/* Quick Clinical Tool Indicators */}
+      <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between text-[11px] gap-2 overflow-x-auto">
+        <div className="flex items-center gap-2 truncate">
+          {indicators.primarySymptomLocation ? (
+            <button
+              type="button"
+              onClick={() => setShowMouthMap(true)}
+              className="flex items-center gap-1 text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-md font-semibold cursor-pointer truncate"
+              title="Click to view or edit pinpointed oral locations"
+            >
+              <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
+              <span className="truncate">{indicators.primarySymptomLocation}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowMouthMap(true)}
+              className="flex items-center gap-1 text-slate-600 hover:text-teal-700 bg-white hover:bg-teal-50/50 border border-slate-200 px-2 py-0.5 rounded-md font-medium cursor-pointer"
+            >
+              <MapPin className="w-3 h-3 text-slate-400" />
+              <span>Pinpoint Spot</span>
+            </button>
+          )}
 
-      {/* Conversational Input Bar - Free Text First */}
+          {(screeningSession.photoDocumentation?.length || 0) > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="flex items-center gap-1 text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md font-semibold cursor-pointer shrink-0"
+              title="Click to view or add mouth photos"
+            >
+              <Camera className="w-3 h-3 text-indigo-600 shrink-0" />
+              <span>{screeningSession.photoDocumentation?.length} {screeningSession.photoDocumentation?.length === 1 ? 'Photo' : 'Photos'}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="flex items-center gap-1 text-slate-600 hover:text-indigo-700 bg-white hover:bg-indigo-50/50 border border-slate-200 px-2 py-0.5 rounded-md font-medium cursor-pointer shrink-0"
+            >
+              <Camera className="w-3 h-3 text-slate-400" />
+              <span>Add Photo</span>
+            </button>
+          )}
+
+          {onOpenAskOralGuard && (
+            <button
+              type="button"
+              onClick={onOpenAskOralGuard}
+              className="flex items-center gap-1 text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-md font-medium cursor-pointer shrink-0"
+              title="Ask OralGuard AI questions"
+            >
+              <Sparkles className="w-3 h-3 text-teal-600 shrink-0" />
+              <span>Ask AI</span>
+            </button>
+          )}
+
+          {onOpenFollowUp && (
+            <button
+              type="button"
+              onClick={onOpenFollowUp}
+              className="flex items-center gap-1 text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md font-medium cursor-pointer shrink-0"
+              title="Open Follow-up & Reminders"
+            >
+              <RotateCcw className="w-3 h-3 text-indigo-600 shrink-0" />
+              <span>Follow-up</span>
+            </button>
+          )}
+
+          {onOpenCessation && (
+            <button
+              type="button"
+              onClick={onOpenCessation}
+              className="flex items-center gap-1 text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-md font-medium cursor-pointer shrink-0"
+              title="Open Habit & Tobacco Cessation Support"
+            >
+              <HeartHandshake className="w-3 h-3 text-teal-600 shrink-0" />
+              <span>Cessation</span>
+            </button>
+          )}
+
+          {onOpenAwarenessHub && (
+            <button
+              type="button"
+              onClick={onOpenAwarenessHub}
+              className="flex items-center gap-1 text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md font-medium cursor-pointer shrink-0"
+              title="Open Oral Health Awareness Hub"
+            >
+              <BookOpen className="w-3 h-3 text-indigo-600 shrink-0" />
+              <span>Hub</span>
+            </button>
+          )}
+
+          {(screeningSession.symptomProgress?.length || 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowTracker(true)}
+              className="flex items-center gap-1 text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md font-semibold cursor-pointer shrink-0"
+              title="Click to view symptom timeline"
+            >
+              <Activity className="w-3 h-3 text-amber-600 shrink-0" />
+              <span>{screeningSession.symptomProgress?.length} Logged</span>
+            </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowTracker(true)}
+          className="text-[10px] text-slate-500 hover:text-slate-800 font-medium shrink-0 underline cursor-pointer"
+        >
+          Tracker
+        </button>
+      </div>
+
+      {/* Conversational Input Bar */}
       <div className="p-3 bg-white border-t border-slate-200">
         <form
           onSubmit={(e) => {
@@ -998,8 +1330,10 @@ Patient's latest message: "${content}"`,
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder={
-              selectedLanguage === 'hinglish'
-                ? "Apni problem apne words mein batayein (English, Hindi, Hinglish)..."
+              selectedLanguage === 'hi'
+                ? "अपनी समस्या सरल शब्दों में बताएं (उदा. जीभ पर छाला, 3 हफ्ते से दर्द)..."
+                : selectedLanguage === 'mr'
+                ? "आपली समस्या सोप्या शब्दांत सांगा (उदा. तोंडातील फोड, ३ आठवड्यांपासून त्रास)..."
                 : "Type your concern naturally in full sentences..."
             }
             disabled={isTyping}
@@ -1021,7 +1355,7 @@ Patient's latest message: "${content}"`,
           </button>
         </form>
         <p className="text-[10px] text-center text-slate-400 mt-1.5">
-          Free-text first: Describe symptoms, timeline, or habits naturally without form constraints.
+          Describe symptoms, timeline, or habits naturally in {selectedLanguage === 'hi' ? 'हिन्दी' : selectedLanguage === 'mr' ? 'मराठी' : 'English'}.
         </p>
       </div>
     </div>

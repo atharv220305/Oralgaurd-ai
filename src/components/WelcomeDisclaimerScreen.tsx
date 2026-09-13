@@ -1,8 +1,13 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * Step 1: Welcome & Medical Disclaimer Screen with 3 Supported Languages:
+ * English ('en'), हिन्दी ('hi'), and मराठी ('mr').
+ */
+
 import React, { useState } from 'react';
 import {
   ShieldAlert,
-  CheckCircle2,
-  AlertTriangle,
   ArrowRight,
   Stethoscope,
   Lock,
@@ -10,18 +15,21 @@ import {
   Check,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { AppLanguage } from '../types';
+import { getUIText } from '../data/translations';
 
 interface WelcomeDisclaimerProps {
-  onAccept: (selectedLanguage: 'en' | 'hinglish' | 'hi') => void;
-  initialLanguage?: 'en' | 'hinglish' | 'hi';
+  onAccept: (selectedLanguage: AppLanguage) => void;
+  initialLanguage?: AppLanguage;
 }
 
 export const WelcomeDisclaimerScreen: React.FC<WelcomeDisclaimerProps> = ({
   onAccept,
-  initialLanguage = 'hinglish',
+  initialLanguage = 'en',
 }) => {
   const [agreed, setAgreed] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'hinglish' | 'hi'>(initialLanguage);
+  const [selectedLanguage, setSelectedLanguage] = useState<AppLanguage>(initialLanguage);
+  const t = getUIText(selectedLanguage);
 
   const handleSubmit = () => {
     if (!agreed) return;
@@ -51,7 +59,7 @@ export const WelcomeDisclaimerScreen: React.FC<WelcomeDisclaimerProps> = ({
             </p>
           </div>
 
-          {/* Core Safety & Medical Disclaimer Box (Requirement 4) */}
+          {/* Core Safety & Medical Disclaimer Box */}
           <div className="p-4 rounded-xl bg-white border-2 border-amber-200/90 shadow-2xs space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-amber-100 flex-shrink-0 flex items-center justify-center text-amber-700 mt-0.5">
@@ -59,7 +67,7 @@ export const WelcomeDisclaimerScreen: React.FC<WelcomeDisclaimerProps> = ({
               </div>
               <div className="space-y-1">
                 <h2 className="text-sm font-bold text-slate-900">
-                  Preliminary Screening • Not a Diagnosis
+                  {t.preliminaryNotice} • {t.notDiagnosisNotice}
                 </h2>
                 <p className="text-xs text-slate-600 leading-relaxed">
                   OralGuard AI is an educational and preliminary screening tool for oral health awareness.
@@ -78,16 +86,16 @@ export const WelcomeDisclaimerScreen: React.FC<WelcomeDisclaimerProps> = ({
             </div>
           </div>
 
-          {/* Language Selection Card (Requirement 5) */}
+          {/* Language Selection Card (English, Hindi, Marathi) */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
             <div className="flex items-center gap-2">
               <Globe2 className="w-4 h-4 text-teal-600" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Select Screening Language
+                {t.selectLanguage}
               </h3>
             </div>
             <p className="text-xs text-slate-500">
-              Choose your preferred conversation style. The selected language will control the entire dialogue consistently.
+              Choose your preferred language. The selected language will be maintained consistently across your entire screening.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
@@ -109,29 +117,7 @@ export const WelcomeDisclaimerScreen: React.FC<WelcomeDisclaimerProps> = ({
                   )}
                 </div>
                 <span className="text-[11px] text-slate-500 mt-1 leading-snug">
-                  Clear, natural English questions & clinical explanations.
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedLanguage('hinglish')}
-                className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
-                  selectedLanguage === 'hinglish'
-                    ? 'border-teal-500 bg-teal-50/80 ring-1 ring-teal-500 shadow-xs'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-bold text-slate-900">Hinglish</span>
-                  {selectedLanguage === 'hinglish' && (
-                    <span className="w-4 h-4 rounded-full bg-teal-600 text-white flex items-center justify-center">
-                      <Check className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] text-slate-500 mt-1 leading-snug">
-                  Conversational Hindi + English (आम बोलचाल की भाषा).
+                  English questions, education, and summaries.
                 </span>
               </button>
 
@@ -153,7 +139,29 @@ export const WelcomeDisclaimerScreen: React.FC<WelcomeDisclaimerProps> = ({
                   )}
                 </div>
                 <span className="text-[11px] text-slate-500 mt-1 leading-snug">
-                  सरल एवं प्रामाणिक हिन्दी संवाद और परिणाम।
+                  सरल एवं प्रामाणिक हिन्दी संवाद और मार्गदर्शन।
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedLanguage('mr')}
+                className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
+                  selectedLanguage === 'mr'
+                    ? 'border-teal-500 bg-teal-50/80 ring-1 ring-teal-500 shadow-xs'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-bold text-slate-900">मराठी (Marathi)</span>
+                  {selectedLanguage === 'mr' && (
+                    <span className="w-4 h-4 rounded-full bg-teal-600 text-white flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5" />
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1 leading-snug">
+                  सहज, सोपी मराठी भाषा आणि मार्गदर्शन.
                 </span>
               </button>
             </div>
@@ -185,7 +193,7 @@ export const WelcomeDisclaimerScreen: React.FC<WelcomeDisclaimerProps> = ({
             onClick={handleSubmit}
             disabled={!agreed}
             id="btn-agree-start"
-            className={`w-full py-3.5 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all ${
+            className={`w-full py-3.5 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-xs transition-all ${
               agreed
                 ? 'bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white shadow-teal-700/20 cursor-pointer'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'

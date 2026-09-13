@@ -2,12 +2,15 @@ import {
   AssessmentResult,
   ClinicProvider,
   PatientProfile,
+  ExtractedClinicalFacts,
   RiskLevel,
   ScreeningConcernLevel,
   DemoTestCase,
   ScreeningEvaluationState,
   ScreeningQuestionItem,
   ScreeningQuestionKey,
+  HealthHelpline,
+  EmergencyWarningSign,
 } from '../types';
 
 export const DEMO_TEST_CASES: DemoTestCase[] = [
@@ -88,190 +91,476 @@ export const DEMO_TEST_CASES: DemoTestCase[] = [
 export const MOCK_CLINICS: ClinicProvider[] = [
   {
     id: 'clinic-1',
-    name: 'Demo Hospital — Tata Memorial Oncology Centre (Demo)',
-    specialist: 'Demo Doctor: Dr. Rajesh Sharma (Specialist)',
+    name: 'Tata Memorial Hospital — Head & Neck Oncology Centre',
+    specialist: 'Dr. Rajesh Sharma (Oncosurgeon)',
     specialtyType: 'Head & Neck Oncology',
-    title: 'Senior Consultant Oral Oncologist (Prototype / Demo Data)',
+    title: 'Senior Consultant Oral Oncosurgeon',
     rating: 4.9,
     reviewsCount: 312,
     distance: '2.5 km (Simulated)',
-    address: 'E Borges Road, Parel (Demo Address)',
+    address: 'Dr. E Borges Road, Parel',
     city: 'Mumbai',
+    area: 'Parel',
+    phone: '022-24177000',
+    publicHospitalType: 'Government / Public Institution',
+    isVerified: true,
     lat: 19.0048,
     lng: 72.8427,
     availableDates: ['Tomorrow, 10:30 AM', 'Thursday, 2:00 PM', 'Friday, 11:30 AM'],
     availableTimes: ['10:30 AM', '11:45 AM', '2:00 PM', '3:30 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-1b',
-    name: 'Demo Hospital — Nair Dental College & Oral Pathology (Demo)',
-    specialist: 'Demo Doctor: Dr. Meera Merchant (Specialist)',
+    name: 'Nair Dental College & Hospital — Oral Medicine Department',
+    specialist: 'Dr. Meera Merchant (Oral Medicine & Biopsy)',
     specialtyType: 'Dentist',
-    title: 'Specialist in Mucosal Biopsy (Prototype / Demo Data)',
+    title: 'Professor & Specialist in Mucosal Biopsy',
     rating: 4.7,
     reviewsCount: 168,
     distance: '3.8 km (Simulated)',
-    address: 'Dr. AL Nair Road, Mumbai Central (Demo Address)',
+    address: 'Dr. AL Nair Road, Mumbai Central',
     city: 'Mumbai',
+    area: 'Mumbai Central',
+    phone: '022-23082714',
+    publicHospitalType: 'Dental College & Hospital',
+    isVerified: true,
     lat: 18.9723,
     lng: 72.8228,
     availableDates: ['Today, 4:00 PM', 'Tomorrow, 11:00 AM', 'Friday, 2:30 PM'],
     availableTimes: ['11:00 AM', '2:30 PM', '4:00 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-2',
-    name: 'Demo Hospital — AIIMS Maxillofacial Surgery Unit (Demo)',
-    specialist: 'Demo Doctor: Dr. Priya Deshmukh (Specialist)',
+    name: 'AIIMS New Delhi — Oral & Maxillofacial Surgery Unit',
+    specialist: 'Dr. Priya Deshmukh (Maxillofacial Surgeon)',
     specialtyType: 'Oral & Maxillofacial Surgeon',
-    title: 'Facial Reconstructive Specialist (Prototype / Demo Data)',
+    title: 'Facial Reconstructive & Biopsy Specialist',
     rating: 4.8,
     reviewsCount: 245,
     distance: '4.1 km (Simulated)',
-    address: 'Ansari Nagar, Medical Enclave (Demo Address)',
+    address: 'Ansari Nagar, Medical Enclave',
     city: 'New Delhi',
+    area: 'Ansari Nagar',
+    phone: '011-26588500',
+    publicHospitalType: 'Government / Public Institution',
+    isVerified: true,
     lat: 28.5672,
     lng: 77.2100,
     availableDates: ['Today, 3:30 PM', 'Tomorrow, 9:00 AM', 'Wednesday, 1:15 PM'],
     availableTimes: ['9:00 AM', '11:30 AM', '1:15 PM', '3:30 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-2b',
-    name: 'Demo Hospital — Maulana Azad Dental Sciences (Demo)',
-    specialist: 'Demo Doctor: Dr. Amitav Banerjee (Specialist)',
+    name: 'Maulana Azad Institute of Dental Sciences (MAIDS)',
+    specialist: 'Dr. Amitav Banerjee (Oral Medicine)',
     specialtyType: 'Dentist',
-    title: 'Consultant Oral Medicine (Prototype / Demo Data)',
+    title: 'Consultant in Precancerous Lesions & Stomatology',
     rating: 4.8,
     reviewsCount: 220,
     distance: '5.2 km (Simulated)',
-    address: 'Bahadur Shah Zafar Marg (Demo Address)',
+    address: 'Bahadur Shah Zafar Marg, ITO',
     city: 'New Delhi',
+    area: 'ITO',
+    phone: '011-23233925',
+    publicHospitalType: 'Dental College & Hospital',
+    isVerified: true,
     lat: 28.6369,
     lng: 77.2407,
     availableDates: ['Tomorrow, 10:00 AM', 'Thursday, 12:30 PM'],
     availableTimes: ['10:00 AM', '11:30 AM', '12:30 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-3',
-    name: 'Demo Hospital — Apollo Oral Health Diagnostic Hub (Demo)',
-    specialist: 'Demo Doctor: Dr. Ananya Iyer (Specialist)',
+    name: 'Apollo Health Pavilion — Comprehensive Oral & ENT Unit',
+    specialist: 'Dr. Ananya Iyer (Oral Medicine)',
     specialtyType: 'Dentist',
-    title: 'Consultant Oral Medicine (Prototype / Demo Data)',
+    title: 'Consultant Oral Medicine & Mucosal Diagnostic Expert',
     rating: 4.7,
     reviewsCount: 180,
     distance: '1.2 km (Simulated)',
-    address: 'Metro Health Pavilion, 4th Block, Koramangala (Demo Address)',
+    address: 'Metro Health Pavilion, 4th Block, Koramangala',
     city: 'Bengaluru',
+    area: 'Koramangala',
+    phone: '080-25530000',
+    publicHospitalType: 'Empanelled Private Hospital',
+    isVerified: true,
     lat: 12.9352,
     lng: 77.6245,
     availableDates: ['Tomorrow, 11:00 AM', 'Wednesday, 4:00 PM', 'Thursday, 10:30 AM'],
     availableTimes: ['10:30 AM', '11:00 AM', '2:30 PM', '4:00 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-3b',
-    name: 'Demo Hospital — Kidwai Head & Neck Oncology Centre (Demo)',
-    specialist: 'Demo Doctor: Dr. Suresh Ranganathan (Specialist)',
+    name: 'Kidwai Memorial Institute of Oncology',
+    specialist: 'Dr. Suresh Ranganathan (Surgical Oncologist)',
     specialtyType: 'Head & Neck Oncology',
-    title: 'Head & Neck Cancer Specialist (Prototype / Demo Data)',
+    title: 'Head & Neck Cancer Specialist',
     rating: 4.9,
     reviewsCount: 290,
     distance: '3.4 km (Simulated)',
-    address: 'Dr. M.H. Marigowda Road (Demo Address)',
+    address: 'Dr. M.H. Marigowda Road',
     city: 'Bengaluru',
+    area: 'Dairy Circle',
+    phone: '080-26094000',
+    publicHospitalType: 'Government / Public Institution',
+    isVerified: true,
     lat: 12.9405,
     lng: 77.5954,
     availableDates: ['Wednesday, 9:30 AM', 'Thursday, 3:00 PM'],
     availableTimes: ['9:30 AM', '11:00 AM', '2:00 PM', '3:00 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-4',
-    name: 'Demo Hospital — Fortis Upper Airway & ENT Care (Demo)',
-    specialist: 'Demo Doctor: Dr. Vikramaditya Sen (Specialist)',
-    specialtyType: 'ENT Specialist',
-    title: 'Upper Airway Diagnostics (Prototype / Demo Data)',
-    rating: 4.9,
-    reviewsCount: 195,
-    distance: '5.6 km (Simulated)',
-    address: 'Sector 44, Opposite Huda City (Demo Address)',
-    city: 'Gurugram',
-    lat: 28.4595,
-    lng: 77.0266,
-    availableDates: ['Wednesday, 10:00 AM', 'Thursday, 12:00 PM', 'Friday, 3:00 PM'],
-    availableTimes: ['10:00 AM', '12:00 PM', '2:00 PM', '3:00 PM'],
-    badge: 'Prototype / Demo Data',
-  },
-  {
-    id: 'clinic-5',
-    name: 'Demo Hospital — Bharati Dental Research Hospital (Demo)',
-    specialist: 'Demo Doctor: Dr. Sandeep Kulkarni (Specialist)',
+    name: 'Bharati Vidyapeeth Dental College & Hospital',
+    specialist: 'Dr. Sandeep Kulkarni (Maxillofacial Surgeon)',
     specialtyType: 'Oral & Maxillofacial Surgeon',
-    title: 'Oral Surgery & Biopsy Specialist (Prototype / Demo Data)',
+    title: 'Oral Surgery & Mucosal Biopsy Specialist',
     rating: 4.7,
     reviewsCount: 174,
     distance: '3.1 km (Simulated)',
-    address: 'Pune-Satara Road, Dhankawadi (Demo Address)',
+    address: 'Pune-Satara Road, Dhankawadi',
     city: 'Pune',
+    area: 'Dhankawadi / Satara Road',
+    phone: '020-24373266',
+    publicHospitalType: 'Dental College & Hospital',
+    isVerified: true,
     lat: 18.4575,
     lng: 73.8553,
     availableDates: ['Today, 2:30 PM', 'Tomorrow, 10:00 AM'],
     availableTimes: ['10:00 AM', '11:30 AM', '2:30 PM', '4:00 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
+  },
+  {
+    id: 'clinic-4b',
+    name: 'Deenanath Mangeshkar Hospital — ENT & Head-Neck Dept',
+    specialist: 'Dr. Pallavi Joshi (ENT & Head Neck)',
+    specialtyType: 'ENT Specialist',
+    title: 'Senior ENT Surgeon & Laryngologist',
+    rating: 4.8,
+    reviewsCount: 205,
+    distance: '4.5 km (Simulated)',
+    address: 'Erandwane, Near Mhatre Bridge',
+    city: 'Pune',
+    area: 'Erandwane',
+    phone: '020-40151000',
+    publicHospitalType: 'Empanelled Private Hospital',
+    isVerified: true,
+    lat: 18.5018,
+    lng: 73.8340,
+    availableDates: ['Tomorrow, 10:00 AM', 'Friday, 3:00 PM'],
+    availableTimes: ['10:00 AM', '12:00 PM', '3:00 PM'],
+    badge: 'Directory & Demo Data',
+  },
+  {
+    id: 'clinic-nashik-1',
+    name: 'Maharashtra University of Health Sciences & Civil Hospital Wing',
+    specialist: 'Dr. Nitin Patil (Maxillofacial Surgeon)',
+    specialtyType: 'Oral & Maxillofacial Surgeon',
+    title: 'Consultant Oral Surgeon & Precancer Specialist',
+    rating: 4.6,
+    reviewsCount: 132,
+    distance: '2.8 km (Simulated)',
+    address: 'Trimbak Road, Near Civil Hospital',
+    city: 'Nashik',
+    area: 'Trimbak Road',
+    phone: '0253-2576106',
+    publicHospitalType: 'Government / Public Institution',
+    isVerified: true,
+    lat: 19.9975,
+    lng: 73.7898,
+    availableDates: ['Today, 3:00 PM', 'Tomorrow, 11:30 AM'],
+    availableTimes: ['11:30 AM', '2:00 PM', '3:00 PM'],
+    badge: 'Directory & Demo Data',
+  },
+  {
+    id: 'clinic-nashik-2',
+    name: 'Nashik Cancer Hospital & Onco-Surgical Center',
+    specialist: 'Dr. Snehal Kadam (Head & Neck Oncologist)',
+    specialtyType: 'Head & Neck Oncology',
+    title: 'Oncosurgical Specialist in Oral Lesions',
+    rating: 4.8,
+    reviewsCount: 145,
+    distance: '4.2 km (Simulated)',
+    address: 'Gangapur Road, Anandwalli',
+    city: 'Nashik',
+    area: 'Gangapur Road',
+    phone: '0253-2345000',
+    publicHospitalType: 'Empanelled Private Hospital',
+    isVerified: true,
+    lat: 20.0150,
+    lng: 73.7650,
+    availableDates: ['Tomorrow, 10:00 AM', 'Thursday, 1:00 PM'],
+    availableTimes: ['10:00 AM', '11:30 AM', '1:00 PM'],
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-6',
-    name: 'Demo Hospital — Basavatarakam Cancer Wing (Demo)',
-    specialist: 'Demo Doctor: Dr. K. Srinivas Rao (Specialist)',
+    name: 'Basavatarakam Indo-American Cancer Hospital & Research Institute',
+    specialist: 'Dr. K. Srinivas Rao (Surgical Oncologist)',
     specialtyType: 'Head & Neck Oncology',
-    title: 'Surgical Oncologist (Prototype / Demo Data)',
+    title: 'Senior Surgical Oncologist',
     rating: 4.8,
     reviewsCount: 260,
     distance: '4.7 km (Simulated)',
-    address: 'Road No. 10, Banjara Hills (Demo Address)',
+    address: 'Road No. 10, Banjara Hills',
     city: 'Hyderabad',
+    area: 'Banjara Hills',
+    phone: '040-23551235',
+    publicHospitalType: 'Empanelled Private Hospital',
+    isVerified: true,
     lat: 17.4326,
     lng: 78.4312,
     availableDates: ['Tomorrow, 11:30 AM', 'Thursday, 1:30 PM'],
     availableTimes: ['11:30 AM', '1:30 PM', '3:30 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-7',
-    name: 'Demo Hospital — Adyar Oral Oncology Institute (Demo)',
-    specialist: 'Demo Doctor: Dr. Radhika Sundaram (Specialist)',
+    name: 'Cancer Institute (WIA) Adyar — Head & Neck Oncology Wing',
+    specialist: 'Dr. Radhika Sundaram (Head & Neck Specialist)',
     specialtyType: 'Head & Neck Oncology',
-    title: 'Oral Stomatologist (Prototype / Demo Data)',
+    title: 'Oral Stomatologist & Diagnostic Lead',
     rating: 4.9,
     reviewsCount: 340,
     distance: '3.9 km (Simulated)',
-    address: 'East Canal Bank Road, Gandhi Nagar, Adyar (Demo Address)',
+    address: 'East Canal Bank Road, Gandhi Nagar, Adyar',
     city: 'Chennai',
+    area: 'Adyar',
+    phone: '044-22209150',
+    publicHospitalType: 'Government / Public Institution',
+    isVerified: true,
     lat: 13.0067,
     lng: 80.2570,
     availableDates: ['Wednesday, 10:00 AM', 'Friday, 2:00 PM'],
     availableTimes: ['10:00 AM', '11:30 AM', '2:00 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
   },
   {
     id: 'clinic-8',
-    name: 'Demo Hospital — Chittaranjan Cancer Diagnostic Centre (Demo)',
-    specialist: 'Demo Doctor: Dr. Subhashish Roy (Specialist)',
+    name: 'Chittaranjan National Cancer Institute (CNCI)',
+    specialist: 'Dr. Subhashish Roy (Head & Neck Oncosurgeon)',
     specialtyType: 'Head & Neck Oncology',
-    title: 'Consultant Oncosurgeon (Prototype / Demo Data)',
+    title: 'Consultant Oncosurgeon & Biopsy Lead',
     rating: 4.8,
     reviewsCount: 210,
     distance: '4.4 km (Simulated)',
-    address: '37 SP Mukherjee Road, Hazra (Demo Address)',
+    address: '37 SP Mukherjee Road, Hazra',
     city: 'Kolkata',
+    area: 'Hazra / Kalighat',
+    phone: '033-24765101',
+    publicHospitalType: 'Government / Public Institution',
+    isVerified: true,
     lat: 22.5204,
     lng: 88.3533,
     availableDates: ['Tomorrow, 12:00 PM', 'Thursday, 10:30 AM'],
     availableTimes: ['10:30 AM', '12:00 PM', '2:30 PM'],
-    badge: 'Prototype / Demo Data',
+    badge: 'Directory & Demo Data',
+  },
+  {
+    id: 'clinic-9',
+    name: 'Government Dental College & Hospital (GDC Ahmedabad)',
+    specialist: 'Dr. Hiren Patel (Oral Medicine & Diagnosis)',
+    specialtyType: 'Dentist',
+    title: 'Professor & Head, Oral Pathology & Medicine',
+    rating: 4.7,
+    reviewsCount: 188,
+    distance: '3.5 km (Simulated)',
+    address: 'Civil Hospital Compound, Asarwa',
+    city: 'Ahmedabad',
+    area: 'Asarwa',
+    phone: '079-22682060',
+    publicHospitalType: 'Dental College & Hospital',
+    isVerified: true,
+    lat: 23.0525,
+    lng: 72.6026,
+    availableDates: ['Tomorrow, 9:30 AM', 'Thursday, 11:00 AM'],
+    availableTimes: ['9:30 AM', '11:00 AM', '2:00 PM'],
+    badge: 'Directory & Demo Data',
+  },
+  {
+    id: 'clinic-10',
+    name: 'RST Regional Cancer Hospital & Research Centre',
+    specialist: 'Dr. Manisha Wankhede (Head & Neck Surgeon)',
+    specialtyType: 'Head & Neck Oncology',
+    title: 'Consultant Surgical Oncologist',
+    rating: 4.7,
+    reviewsCount: 162,
+    distance: '4.0 km (Simulated)',
+    address: 'Manewada Road, Tukdoji Square',
+    city: 'Nagpur',
+    area: 'Tukdoji Square',
+    phone: '0712-2744441',
+    publicHospitalType: 'Government / Public Institution',
+    isVerified: true,
+    lat: 21.1150,
+    lng: 79.0980,
+    availableDates: ['Wednesday, 10:30 AM', 'Friday, 1:30 PM'],
+    availableTimes: ['10:30 AM', '12:00 PM', '1:30 PM'],
+    badge: 'Directory & Demo Data',
+  },
+];
+
+export const VERIFIED_HEALTH_HELPLINES: HealthHelpline[] = [
+  {
+    id: 'helpline-erss-112',
+    name: 'National Emergency Response Support System (ERSS)',
+    hindiName: 'राष्ट्रीय आपातकालीन प्रतिक्रिया सहायता प्रणाली (112)',
+    marathiName: 'राष्ट्रीय आपत्कालीन प्रतिसाद सहाय्यता यंत्रणा (112)',
+    phone: '112',
+    dialNumber: '112',
+    purpose: 'Pan-India 24x7 all-in-one emergency response for acute medical emergencies, ambulance distress, and police/fire dispatch.',
+    purposeHi: 'अति-गंभीर चिकित्सा आपातकाल, एम्बुलेंस और त्वरित सहायता के लिए अखिल भारतीय 24x7 आपातकालीन नंबर।',
+    purposeMr: 'तातडीच्या वैद्यकीय आणीबाणी, रुग्णवाहिका आणि त्वरित मदतीसाठी संपूर्ण भारतातील २४x७ हेल्पलाइन.',
+    availability: '24 Hours / 7 Days (Round-the-clock)',
+    region: 'Pan-India (All States & UTs)',
+    authority: 'Ministry of Home Affairs & Emergency Response System, Govt. of India',
+    category: 'emergency',
+    isTollFree: true,
+    notes: 'Use immediately if experiencing acute difficulty breathing, airway choking, or massive hemorrhage.',
+  },
+  {
+    id: 'helpline-nhh-104',
+    name: 'National Health Helpline / State Medical Advice',
+    hindiName: 'राष्ट्रीय स्वास्थ्य हेल्पलाइन (104)',
+    marathiName: 'राष्ट्रीय आरोग्य हेल्पलाइन (104)',
+    phone: '104',
+    dialNumber: '104',
+    purpose: 'Toll-free 24x7 medical information, first-aid triage, directory of local health centers, blood bank availability, and health grievance redressal.',
+    purposeHi: '24x7 निःशुल्क स्वास्थ्य परामर्श, प्राथमिक उपचार सलाह, सरकारी अस्पताल और रक्त उपलब्धता की जानकारी।',
+    purposeMr: '२४x७ मोफत आरोग्य सल्ला, प्रथमोपचार मार्गदर्शन आणि जवळच्या आरोग्य केंद्रांची माहिती.',
+    availability: '24 Hours / 7 Days',
+    region: 'Pan-India (State Integrated Services)',
+    authority: 'Ministry of Health and Family Welfare (MoHFW) & State Health Departments',
+    category: 'general_health',
+    isTollFree: true,
+    notes: 'Connects to registered doctors and paramedics for non-emergency medical guidance and local hospital directions.',
+  },
+  {
+    id: 'helpline-tobacco-quitline',
+    name: 'National Tobacco Quitline Services (NTQLS)',
+    hindiName: 'राष्ट्रीय तंबाकू मुक्ति क्विटलाइन (NTQLS)',
+    marathiName: 'राष्ट्रीय तंबाखू मुक्ती क्विटलाइन (NTQLS)',
+    phone: '1800-11-2356',
+    dialNumber: '1800112356',
+    purpose: 'Dedicated toll-free counseling and behavioral support for quitting Gutka, Khaini, Zarda, Supari/Areca nut, Bidi, and Cigarettes in multiple Indian languages.',
+    purposeHi: 'गुटखा, खैनी, जर्दा, सुपारी, बीड़ी और सिगरेट छोड़ने के लिए निःशुल्क परामर्श और चरणबद्ध सहायता।',
+    purposeMr: 'गुटखा, खैनी, जर्दा, सुपारी, विडी आणि सिगारेट सोडण्यासाठी मोफत समुपदेशन व सहाय्य.',
+    availability: '8:00 AM – 8:00 PM (All days except National Holidays)',
+    region: 'Pan-India (Multilingual Support)',
+    authority: 'Ministry of Health and Family Welfare (MoHFW) & V.P. Chest Institute, Delhi',
+    category: 'cessation',
+    isTollFree: true,
+    notes: 'Certified counselors provide customized 4 D’s coping plans, craving management techniques, and follow-up calls.',
+  },
+  {
+    id: 'helpline-tele-manas',
+    name: 'Tele-MANAS (National Mental Health & De-addiction Distress Helpline)',
+    hindiName: 'टेली-मानस राष्ट्रीय मानसिक स्वास्थ्य व नशा मुक्ति हेल्पलाइन',
+    marathiName: 'टेलि-मानस राष्ट्रीय मानसिक आरोग्य व व्यसनमुक्ती हेल्पलाइन',
+    phone: '14416 / 1800-891-4416',
+    dialNumber: '14416',
+    purpose: '24x7 comprehensive, confidential psychosocial support, de-addiction distress counseling, and mental wellness guidance.',
+    purposeHi: '24x7 गोपनीय मानसिक स्वास्थ्य, नशा मुक्ति और तनाव प्रबंधन परामर्श सेवा।',
+    purposeMr: '२४x७ गोपनीय मानसिक आरोग्य, व्यसनमुक्ती आणि ताणतणाव व्यवस्थापन सल्ला सेवा.',
+    availability: '24 Hours / 7 Days',
+    region: 'Pan-India (20+ Indian Languages)',
+    authority: 'MoHFW, Govt. of India & NIMHANS (National Apex Coordinating Centre)',
+    category: 'cessation',
+    isTollFree: true,
+    notes: 'Dial shortcode 14416 from any mobile or landline across India.',
+  },
+  {
+    id: 'helpline-pmjay-14555',
+    name: 'Ayushman Bharat PM-JAY / National Health Authority Helpline',
+    hindiName: 'आयुष्मान भारत PM-JAY राष्ट्रीय हेल्पलाइन (14555)',
+    marathiName: 'आयुष्मान भारत PM-JAY राष्ट्रीय हेल्पलाइन (14555)',
+    phone: '14555 / 1800-111-565',
+    dialNumber: '14555',
+    purpose: 'Information on empanelled public and private hospitals, cashless cancer treatments, eligibility verification, and beneficiary card assistance.',
+    purposeHi: 'कैशलेस उपचार, सरकारी व निजी संबद्ध अस्पतालों की सूची, और योजना पात्रता की जानकारी।',
+    purposeMr: 'कॅशलेस उपचार, संलग्न रुग्णालयांची यादी आणि योजना पात्रतेबद्दल माहिती.',
+    availability: '24 Hours / 7 Days',
+    region: 'Pan-India',
+    authority: 'National Health Authority (NHA), Govt. of India',
+    category: 'insurance_public',
+    isTollFree: true,
+    notes: 'Covers major surgical onco-treatments, biopsies, and diagnostic admissions under national health assurance.',
+  },
+  {
+    id: 'helpline-ambulance-108',
+    name: 'Emergency Medical & Ambulance Transport (108 / 102)',
+    hindiName: 'आपातकालीन एम्बुलेंस सेवा (108 / 102)',
+    marathiName: 'आपत्कालीन रुग्णवाहिका सेवा (108 / 102)',
+    phone: '108 / 102',
+    dialNumber: '108',
+    purpose: 'Emergency medical response, basic and advanced life support ambulance dispatch to the nearest tertiary or district hospital.',
+    purposeHi: 'निकटतम अस्पताल तक गंभीर रोगियों के लिए 24x7 निःशुल्क एम्बुलेंस परिवहन सेवा।',
+    purposeMr: 'जवळच्या रुग्णालयात तातडीच्या रुग्णवाहिका वाहतुकीसाठी २४x७ मोफत सेवा.',
+    availability: '24 Hours / 7 Days',
+    region: 'State Disaster & Public Health Services (Pan-India)',
+    authority: 'State Health Departments & National Health Mission (NHM)',
+    category: 'emergency',
+    isTollFree: true,
+    notes: '108 provides emergency life-support transport; 102 focuses on maternal and infant transport.',
+  },
+];
+
+export const EMERGENCY_WARNING_SIGNS: EmergencyWarningSign[] = [
+  {
+    id: 'emerg-airway',
+    title: 'Acute Airway Obstruction / Breathing Difficulty',
+    titleHi: 'सांस लेने में तीव्र कठिनाई या दम घुटना',
+    titleMr: 'श्वास घेण्यास तीव्र अडचण किंवा गुदमरणे',
+    symptomSign: 'Stridor (high-pitched breathing sounds), severe shortness of breath, or choking feeling related to throat or oral swelling.',
+    whyUrgent: 'Can lead to rapid airway compromise and hypoxia within minutes. Requires immediate emergency airway management.',
+    immediateAction: 'Call 112 or 108 immediately. Sit upright, keep head slightly elevated, and proceed to the nearest emergency department.',
+    severity: 'critical',
+  },
+  {
+    id: 'emerg-dysphagia',
+    title: 'Severe Acute Inability to Swallow (Saliva / Liquids)',
+    titleHi: 'लार या पानी निगलने में असमर्थता',
+    titleMr: 'लाळ किंवा पाणी गिळण्यास असमर्थता',
+    symptomSign: 'Inability to swallow even small sips of water or saliva, resulting in constant drooling, throat blockage, or aspiration coughing.',
+    whyUrgent: 'Indicates high-grade mechanical obstruction of the pharynx or severe deep tissue inflammation with aspiration risk.',
+    immediateAction: 'Do not attempt to swallow solid foods. Seek immediate hospital emergency evaluation or call 112.',
+    severity: 'critical',
+  },
+  {
+    id: 'emerg-swelling',
+    title: 'Rapidly Expanding Floor-of-Mouth or Neck Swelling',
+    titleHi: 'गले या जबड़े के नीचे तेजी से बढ़ती सूजन',
+    titleMr: 'घसा किंवा जबड्याखाली वेगाने वाढणारी सूज',
+    symptomSign: 'A firm, tender swelling under the tongue or jaw that is visibly spreading over hours, elevating the tongue or causing neck rigidity.',
+    whyUrgent: 'Risk of Ludwig’s angina or severe deep fascial space infection, which can push the tongue upward and block the airway.',
+    immediateAction: 'Proceed immediately to an emergency trauma or ENT hospital unit. Do not press or squeeze the swelling.',
+    severity: 'critical',
+  },
+  {
+    id: 'emerg-bleeding',
+    title: 'Continuous / Uncontrolled Oral Bleeding',
+    titleHi: 'मुँह से लगातार या अत्यधिक रक्तस्राव',
+    titleMr: 'तोंडातून सतत किंवा मोठ्या प्रमाणात रक्तस्त्राव',
+    symptomSign: 'Heavy, active bleeding from an oral ulcer, tongue border, or throat that does not stop after 15 minutes of gentle pressure.',
+    whyUrgent: 'Risk of vascular erosion or acute blood loss. Choking hazard if blood drains into the tracheobronchial tree.',
+    immediateAction: 'Lean slightly forward so blood drains out (do not swallow blood). Apply clean rolled gauze with firm gentle pressure and call 112.',
+    severity: 'critical',
+  },
+  {
+    id: 'emerg-sepsis',
+    title: 'Severe Lockjaw with High Fever & Systemic Confusion',
+    titleHi: 'तेज बुखार, भ्रम और मुँह बिल्कुल न खुल पाना',
+    titleMr: 'तीव्र ताप, गोंधळ आणि तोंड अजिबात न उघडणे',
+    symptomSign: 'Complete inability to open jaw (< 5mm) accompanied by high temperature (> 102°F), altered alertness, lethargy, or rapid pulse.',
+    whyUrgent: 'Indicates severe systemic spread of infection (sepsis) or deep masticator space abscess requiring urgent IV antibiotics and surgical drainage.',
+    immediateAction: 'Transport to the emergency triage room of a major hospital immediately.',
+    severity: 'urgent',
   },
 ];
 
@@ -491,16 +780,44 @@ export function extractDurationDetails(text: string, lower: string): {
   durationText: string;
   isUnknown?: boolean;
 } | null {
+  return extractDurationFromTarget(lower);
+}
+
+function extractDurationFromTarget(targetStr: string): {
+  duration: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
+  durationCategory: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
+  durationOverTwoWeeks?: boolean;
+  durationText: string;
+  isUnknown?: boolean;
+} | null {
+  const lower = targetStr.toLowerCase().trim();
+
+  // If text has a self-correction like "for two weeks... actually, three weeks", focus on the corrected part
+  if (lower.includes('actually') || lower.includes('wait') || lower.includes('correction') || lower.includes('balki') || lower.includes('nahi balki')) {
+    const parts = lower.split(/actually|wait|correction|balki|nahi balki/i);
+    const afterCorrection = parts[parts.length - 1].trim();
+    if (afterCorrection.length >= 3) {
+      const correctedResult = extractDurationFromTarget(afterCorrection);
+      if (correctedResult) return correctedResult;
+    }
+  }
+
   // Check unknown / uncertain first
   if (
     lower.includes("not sure") ||
     lower.includes("don't know") ||
     lower.includes("dont know") ||
+    lower.includes("uncertain") ||
+    lower.includes("unsure") ||
+    lower.includes("cannot remember") ||
     lower.includes("can't remember") ||
     lower.includes("cant remember") ||
     lower.includes("pata nahi") ||
     lower.includes("yaad nahi") ||
     lower.includes("theek se yaad nahi") ||
+    lower.includes("mahiti nahi") ||
+    lower.includes("आठवत नाही") ||
+    lower.includes("माहित नाही") ||
     lower.includes("याद नहीं") ||
     lower.includes("पता नहीं")
   ) {
@@ -516,19 +833,19 @@ export function extractDurationDetails(text: string, lower: string): {
   const numberWordMap: Record<string, number> = {
     a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
     eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, twenty: 20, thirty: 30,
-    ek: 1, do: 2, teen: 3, tin: 3, chaar: 4, char: 4, paanch: 5, panch: 5, chhe: 6, chhah: 6, che: 6,
-    saat: 7, sat: 7, aath: 8, ath: 8, nau: 9, das: 10, pandrah: 15, bees: 20, tees: 30,
-    'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'पाँच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10,
+    ek: 1, do: 2, don: 2, teen: 3, tin: 3, chaar: 4, char: 4, paanch: 5, panch: 5, pach: 5, chhe: 6, chhah: 6, che: 6, saha: 6,
+    saat: 7, sat: 7, aath: 8, ath: 8, nau: 9, das: 10, daha: 10, pandrah: 15, bees: 20, tees: 30,
+    'एक': 1, 'दो': 2, 'दोन': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'पाँच': 5, 'पाच': 5, 'छह': 6, 'सहा': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'नऊ': 9, 'दस': 10, 'दहा': 10,
     'पंद्रह': 15, 'बीस': 20, 'तीस': 30,
   };
 
-  // Match weeks: e.g. "about three weeks", "for about 3 weeks", "3 hafte", "two weeks", "teen hafte"
-  const weekRegex = /(?:for\s+about|for\s+around|about|around|approx|approximately|roughly|nearly|almost|for|since|lagbhag|karib|kariban|andazan)?\s*(\d+|a\s*few|few|several|a\s*couple\s*of|couple\s*of|a\s*couple|couple|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fourteen|fifteen|twenty|ek|do|teen|tin|chaar|char|paanch|panch|chhe|saat|aath|das|एक|दो|तीन|चार|पांच|पाँच|छह|सात|आठ|दस)\s*(weeks|week|hafte|hafate|hafton|saptah|wk|wks|हफ्ते|हफ़्ते|सप्ताह)/i;
+  // Match weeks: e.g. "about three weeks", "for about 3 weeks", "3 hafte", "two weeks", "teen hafte", "3 aathwade"
+  const weekRegex = /(?:for\s+about|for\s+around|about|around|approx|approximately|roughly|nearly|almost|for|since|lagbhag|karib|kariban|andazan|sumare)?\s*(\d+|a\s*few|few|several|a\s*couple\s*of|couple\s*of|a\s*couple|couple|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fourteen|fifteen|twenty|ek|do|don|teen|tin|chaar|char|paanch|panch|pach|chhe|saha|saat|aath|das|daha|एक|दो|दोन|तीन|चार|पांच|पाँच|पाच|छह|सहा|सात|आठ|दस|दहा)\s*(weeks|week|hafte|hafate|hafton|saptah|aathwade|aathvade|aathwada|aathvada|wk|wks|हफ्ते|हफ़्ते|सप्ताह|आठवडे|आठवडा)/i;
   const weekMatch = lower.match(weekRegex);
 
   if (weekMatch) {
     const rawNum = weekMatch[1].trim().toLowerCase();
-    const isApprox = /about|around|approx|roughly|nearly|almost|lagbhag|karib/i.test(weekMatch[0]);
+    const isApprox = /about|around|approx|roughly|nearly|almost|lagbhag|karib|sumare/i.test(weekMatch[0]);
 
     if (rawNum === 'a few' || rawNum === 'few' || rawNum === 'several') {
       return {
@@ -574,13 +891,13 @@ export function extractDurationDetails(text: string, lower: string): {
     }
   }
 
-  // Match months: e.g. "about a month", "around a month", "2 months", "1 mahina", "ek mahine"
-  const monthRegex = /(?:for\s+about|for\s+around|about|around|approx|approximately|roughly|nearly|almost|for|since|over|more\s*than|lagbhag|karib|kariban|andazan)?\s*(\d+|a|an|one|two|three|four|five|six|several|a\s*few|few|couple|ek|do|teen|char|एक|दो|तीन|चार)?\s*(months|month|mahina|mahine|mahino|महीने|महीना|साल|year|years)/i;
+  // Match months: e.g. "about a month", "around a month", "2 months", "1 mahina", "ek mahine", "don mahine"
+  const monthRegex = /(?:for\s+about|for\s+around|about|around|approx|approximately|roughly|nearly|almost|for|since|over|more\s*than|lagbhag|karib|kariban|andazan|sumare)?\s*(\d+|a|an|one|two|three|four|five|six|several|a\s*few|few|couple|ek|do|don|teen|char|pach|एक|दो|दोन|तीन|चार|पाच)?\s*(months|month|mahina|mahine|mahino|महीने|महीना|महिने|महिना|साल|year|years|varsh|varshe)/i;
   const monthMatch = lower.match(monthRegex);
 
-  if (monthMatch && (monthMatch[1] || monthMatch[0].includes('month') || monthMatch[0].includes('mahine') || monthMatch[0].includes('महीने') || monthMatch[0].includes('year') || monthMatch[0].includes('साल'))) {
+  if (monthMatch && (monthMatch[1] || monthMatch[0].includes('month') || monthMatch[0].includes('mahine') || monthMatch[0].includes('महीने') || monthMatch[0].includes('महिने') || monthMatch[0].includes('year') || monthMatch[0].includes('साल'))) {
     const rawNum = (monthMatch[1] || '1').trim().toLowerCase();
-    const isApprox = /about|around|approx|roughly|nearly|almost|lagbhag|karib/i.test(monthMatch[0]);
+    const isApprox = /about|around|approx|roughly|nearly|almost|lagbhag|karib|sumare/i.test(monthMatch[0]);
     const numVal = numberWordMap[rawNum] !== undefined ? numberWordMap[rawNum] : parseInt(rawNum, 10);
 
     return {
@@ -593,13 +910,13 @@ export function extractDurationDetails(text: string, lower: string): {
     };
   }
 
-  // Match days: e.g. "about 10 days", "for 3 days", "5 din", "do teen din"
-  const dayRegex = /(?:for\s+about|for\s+around|about|around|approx|approximately|roughly|nearly|almost|for|since|lagbhag|karib)?\s*(\d+|a\s*few|few|several|a\s*couple|couple|one|two|three|four|five|six|seven|eight|ten|twelve|fourteen|fifteen|twenty|ek|do|teen|char|panch|ek-do|do-teen|एक|दो|तीन|चार|पांच)\s*(days|day|din|दिन)/i;
+  // Match days: e.g. "about 10 days", "for 3 days", "5 din", "do teen din", "don divas"
+  const dayRegex = /(?:for\s+about|for\s+around|about|around|approx|approximately|roughly|nearly|almost|for|since|lagbhag|karib|sumare)?\s*(\d+|a\s*few|few|several|a\s*couple|couple|one|two|three|four|five|six|seven|eight|ten|twelve|fourteen|fifteen|twenty|ek|do|don|teen|char|panch|pach|ek-do|do-teen|एक|दो|दोन|तीन|चार|पांच|पाच)\s*(days|day|din|divas|दिन|दिवस)/i;
   const dayMatch = lower.match(dayRegex);
 
   if (dayMatch) {
     const rawNum = dayMatch[1].trim().toLowerCase();
-    const isApprox = /about|around|approx|roughly|nearly|almost|lagbhag|karib/i.test(dayMatch[0]);
+    const isApprox = /about|around|approx|roughly|nearly|almost|lagbhag|karib|sumare/i.test(dayMatch[0]);
     const numVal = numberWordMap[rawNum] !== undefined ? numberWordMap[rawNum] : parseInt(rawNum, 10);
 
     if (!isNaN(numVal)) {
@@ -637,10 +954,13 @@ export function extractDurationDetails(text: string, lower: string): {
     lower.includes('longer than 2 weeks') ||
     lower.includes('2 hafton se zyada') ||
     lower.includes('do hafte se zyada') ||
+    lower.includes('२ आठवड्यांपेक्षा जास्त') ||
+    lower.includes('दोन आठवड्यांपेक्षा जास्त') ||
     lower.includes('दो हफ्ते से ज्यादा') ||
     lower.includes('persistent') ||
     lower.includes('not healing') ||
-    lower.includes('theek nahi ho raha')
+    lower.includes('theek nahi ho raha') ||
+    lower.includes('बरा होत नाही')
   ) {
     return {
       duration: 'two_to_four_weeks',
@@ -658,11 +978,15 @@ export function extractDurationDetails(text: string, lower: string): {
     lower.includes('few days') ||
     lower.includes('just a few days') ||
     lower.includes('kuch din') ||
+    lower.includes('kahi divas') ||
     lower.includes('yesterday') ||
     lower.includes('kal se') ||
+    lower.includes('kalapasun') ||
     lower.includes('recently') ||
     lower.includes('just started') ||
     lower.includes('कुछ दिन') ||
+    lower.includes('काही दिवस') ||
+    lower.includes('कालपासून') ||
     lower.includes('कल से')
   ) {
     return {
@@ -894,7 +1218,14 @@ export function extractPatientProfileFromText(
     lower.includes('khata') ||
     lower.includes('dard')
   ) {
-    next.detectedLanguage = 'hinglish';
+    next.detectedLanguage = 'hi';
+  } else if (
+    lower.includes('tras') ||
+    lower.includes('foda') ||
+    lower.includes('zakhma') ||
+    lower.includes('vedna')
+  ) {
+    next.detectedLanguage = 'mr';
   } else {
     next.detectedLanguage = 'en';
   }
@@ -1457,28 +1788,69 @@ export function extractPatientProfileFromText(
     lower.includes('taraf')
   );
   const currentRegions = isLocationCorrection ? new Set<string>() : new Set(next.affectedRegions || []);
+  const locationNames: string[] = [];
 
+  // Multi-location: both sides of tongue / left & right tongue
   if (
+    lower.includes('both sides of my tongue') ||
+    lower.includes('both sides of the tongue') ||
+    lower.includes('both sides of tongue') ||
+    (lower.includes('tongue') && (lower.includes('both sides') || (lower.includes('left') && lower.includes('right')))) ||
+    lower.includes('donhi baju') ||
+    lower.includes('dono taraf')
+  ) {
+    currentRegions.add('lateral_tongue_left');
+    currentRegions.add('lateral_tongue_right');
+    locationNames.push('Left & Right Lateral Tongue Border');
+  } else if (
     lower.includes('lateral tongue') ||
     lower.includes('side of tongue') ||
     lower.includes('side of my tongue') ||
     lower.includes('side of the tongue') ||
     lower.includes('zuban ke kinare') ||
     lower.includes('jeebh ke kinare') ||
+    lower.includes('जीभ के किनारे') ||
     lower.includes('lateral_tongue') ||
     ((lower.includes('tongue') || lower.includes('jeebh') || lower.includes('zuban')) && (lower.includes('side') || lower.includes('kinare') || lower.includes('kinara')))
   ) {
-    if (lower.includes('left') || lower.includes('baya') || lower.includes('baayein')) {
+    if (lower.includes('left') || lower.includes('baya') || lower.includes('baayein') || lower.includes('डावीकडे') || lower.includes('बायें')) {
       currentRegions.add('lateral_tongue_left');
-      next.primarySymptomLocation = 'Left Lateral Tongue Border';
-    } else if (lower.includes('right') || lower.includes('daya') || lower.includes('daayein')) {
+      locationNames.push('Left Lateral Tongue Border');
+    } else if (lower.includes('right') || lower.includes('daya') || lower.includes('daayein') || lower.includes('उजवीकडे') || lower.includes('दायें')) {
       currentRegions.add('lateral_tongue_right');
-      next.primarySymptomLocation = 'Right Lateral Tongue Border';
+      locationNames.push('Right Lateral Tongue Border');
     } else {
       currentRegions.add('lateral_tongue_left');
-      next.primarySymptomLocation = 'Lateral Tongue Border';
+      locationNames.push('Lateral Tongue Border');
     }
-  } else if (
+  }
+
+  // Cheek / Buccal Mucosa
+  if (
+    lower.includes('inner cheek') ||
+    lower.includes('buccal mucosa') ||
+    lower.includes('gaal ke andar') ||
+    lower.includes('inside my cheek') ||
+    lower.includes('inside of cheek') ||
+    lower.includes('inside cheek') ||
+    lower.includes('गाल के अंदर') ||
+    lower.includes('cheek') ||
+    lower.includes('buccal_mucosa')
+  ) {
+    if (lower.includes('left') || lower.includes('baya') || lower.includes('baayein')) {
+      currentRegions.add('buccal_mucosa_left');
+      locationNames.push('Left Inner Cheek (Buccal Mucosa)');
+    } else if (lower.includes('right') || lower.includes('daya') || lower.includes('daayein')) {
+      currentRegions.add('buccal_mucosa_right');
+      locationNames.push('Right Inner Cheek (Buccal Mucosa)');
+    } else {
+      currentRegions.add('buccal_mucosa_left');
+      locationNames.push('Inner Cheek (Buccal Mucosa)');
+    }
+  }
+
+  // Floor of mouth
+  if (
     lower.includes('floor of mouth') ||
     lower.includes('floor of the mouth') ||
     lower.includes('zuban ke neeche') ||
@@ -1487,104 +1859,100 @@ export function extractPatientProfileFromText(
     lower.includes('floor_of_mouth')
   ) {
     currentRegions.add('floor_of_mouth');
-    next.primarySymptomLocation = 'Floor of the Mouth (Under Tongue)';
-  } else if (
-    lower.includes('inner cheek') ||
-    lower.includes('buccal mucosa') ||
-    lower.includes('gaal ke andar') ||
-    lower.includes('cheek') ||
-    lower.includes('buccal_mucosa')
-  ) {
-    if (lower.includes('left') || lower.includes('baya') || lower.includes('baayein')) {
-      currentRegions.add('buccal_mucosa_left');
-      next.primarySymptomLocation = 'Left Inner Cheek (Buccal Mucosa)';
-    } else if (lower.includes('right') || lower.includes('daya') || lower.includes('daayein')) {
-      currentRegions.add('buccal_mucosa_right');
-      next.primarySymptomLocation = 'Right Inner Cheek (Buccal Mucosa)';
-    } else {
-      currentRegions.add('buccal_mucosa_left');
-      next.primarySymptomLocation = 'Inner Cheek (Buccal Mucosa)';
-    }
-  } else if (
-    lower.includes('left side') ||
-    lower.includes('bayein side') ||
-    lower.includes('baayein side') ||
-    lower.includes('bayein taraf') ||
-    lower.includes('baayein taraf') ||
-    lower.includes('baye taraf') ||
-    lower.includes('बायें तरफ') ||
-    lower.includes('बाएं तरफ') ||
-    lower.includes('left cheek')
-  ) {
-    if (lower.includes('tongue') || lower.includes('jeebh') || lower.includes('zuban')) {
-      currentRegions.add('lateral_tongue_left');
-      next.primarySymptomLocation = 'Left Lateral Tongue Border';
-    } else {
-      currentRegions.add('buccal_mucosa_left');
-      next.primarySymptomLocation = 'Left Inner Cheek / Oral Cavity';
-    }
-  } else if (
-    lower.includes('right side') ||
-    lower.includes('dayein side') ||
-    lower.includes('daayein side') ||
-    lower.includes('dayein taraf') ||
-    lower.includes('daayein taraf') ||
-    lower.includes('daye taraf') ||
-    lower.includes('दायें तरफ') ||
-    lower.includes('दाएं तरफ') ||
-    lower.includes('right cheek')
-  ) {
-    if (lower.includes('tongue') || lower.includes('jeebh') || lower.includes('zuban')) {
-      currentRegions.add('lateral_tongue_right');
-      next.primarySymptomLocation = 'Right Lateral Tongue Border';
-    } else {
-      currentRegions.add('buccal_mucosa_right');
-      next.primarySymptomLocation = 'Right Inner Cheek / Oral Cavity';
-    }
-  } else if (
+    locationNames.push('Floor of the Mouth (Under Tongue)');
+  }
+
+  // Gums / Gingiva
+  if (
     lower.includes('gums') ||
     lower.includes('masoode') ||
     lower.includes('gingiva') ||
-    lower.includes('jaw ridge')
+    lower.includes('jaw ridge') ||
+    lower.includes('मसूड़े')
   ) {
     if (lower.includes('upper') || lower.includes('upar')) {
       currentRegions.add('gingiva_upper');
-      next.primarySymptomLocation = 'Upper Gums (Gingiva)';
+      locationNames.push('Upper Gums (Gingiva)');
     } else {
       currentRegions.add('gingiva_lower');
-      next.primarySymptomLocation = 'Lower Gums (Gingiva)';
+      locationNames.push('Lower Gums (Gingiva)');
     }
-  } else if (
+  }
+
+  // Palate
+  if (
     lower.includes('palate') ||
     lower.includes('talu') ||
     lower.includes('roof of mouth') ||
-    lower.includes('hard palate')
+    lower.includes('hard palate') ||
+    lower.includes('तालू')
   ) {
     currentRegions.add('hard_soft_palate');
-    next.primarySymptomLocation = 'Palate (Roof of Mouth)';
-  } else if (lower.includes('lip') || lower.includes('hoth') || lower.includes('labial')) {
-    if (lower.includes('lower') || lower.includes('neeche')) {
+    locationNames.push('Palate (Roof of Mouth)');
+  }
+
+  // Lip
+  if (lower.includes('lip') || lower.includes('hoth') || lower.includes('labial') || lower.includes('ओठ') || lower.includes('होंठ')) {
+    if (lower.includes('lower') || lower.includes('neeche') || lower.includes('खालचा')) {
       currentRegions.add('lip_lower');
-      next.primarySymptomLocation = 'Lower Lip';
+      locationNames.push('Lower Lip');
     } else {
       currentRegions.add('lip_upper');
-      next.primarySymptomLocation = 'Upper Lip';
+      locationNames.push('Upper Lip');
     }
-  } else if (
+  }
+
+  // Throat / Tonsil
+  if (
     lower.includes('tonsil') ||
     lower.includes('oropharynx') ||
     lower.includes('throat') ||
     lower.includes('gale ke peeche')
   ) {
     currentRegions.add('tonsil_oropharynx');
-    next.primarySymptomLocation = 'Oropharynx / Back of Throat';
-  } else if (
-    lower.includes('tongue') ||
-    lower.includes('zuban') ||
-    lower.includes('jeebh')
+    locationNames.push('Oropharynx / Back of Throat');
+  }
+
+  // Tongue dorsum fallback
+  if (
+    (lower.includes('tongue') || lower.includes('zuban') || lower.includes('jeebh') || lower.includes('जीभ')) &&
+    !currentRegions.has('lateral_tongue_left') &&
+    !currentRegions.has('lateral_tongue_right') &&
+    !currentRegions.has('floor_of_mouth')
   ) {
     currentRegions.add('tongue_dorsum');
-    next.primarySymptomLocation = 'Tongue Dorsum';
+    locationNames.push('Tongue Dorsum');
+  }
+
+  if (currentRegions.size > 0) {
+    next.affectedRegions = Array.from(currentRegions);
+    if (locationNames.length > 0) {
+      next.primarySymptomLocation = Array.from(new Set(locationNames)).join(', ');
+    }
+  }
+
+  // 11b. MULTIPLE CONCERNS TRACKING (e.g. sore on tongue AND bleeding gums)
+  const detectedConcerns: string[] = next.multipleConcerns ? [...next.multipleConcerns] : [];
+  if (next.hasLesionOrUlcer) {
+    detectedConcerns.push(`Oral Sore / Ulcer (${next.primarySymptomLocation || 'Oral Cavity'})`);
+  }
+  if (next.colorChanges === 'white') {
+    detectedConcerns.push('Leukoplakic White Patch');
+  } else if (next.colorChanges === 'red' || next.colorChanges === 'mixed') {
+    detectedConcerns.push('Red Mucosal Patch');
+  }
+  if (next.unexplainedBleeding) {
+    if (lower.includes('gum') || lower.includes('brush') || lower.includes('masoode')) {
+      detectedConcerns.push('Bleeding Gums / Oral Bleeding');
+    } else {
+      detectedConcerns.push('Unexplained Oral Bleeding');
+    }
+  }
+  if (next.reducedMouthOpening) {
+    detectedConcerns.push('Restricted Mouth Opening');
+  }
+  if (detectedConcerns.length > 0) {
+    next.multipleConcerns = Array.from(new Set(detectedConcerns));
   }
 
   if (currentRegions.size > 0) {
@@ -1674,6 +2042,272 @@ export function extractPatientProfileFromText(
 
   next.confirmedPositiveFindings = confirmedPositives;
   next.confirmedNegativeFindings = confirmedNegatives;
+
+  return next;
+}
+
+/**
+ * Validates and sanitizes raw extracted data against strict clinical enums and types.
+ */
+export function validateExtractedFacts(raw: unknown): ExtractedClinicalFacts {
+  if (!raw || typeof raw !== 'object') return {};
+  const obj = raw as Record<string, any>;
+  const facts: ExtractedClinicalFacts = {};
+
+  if (typeof obj.hasLesionOrUlcer === 'boolean') facts.hasLesionOrUlcer = obj.hasLesionOrUlcer;
+  if (typeof obj.ulcerDetails === 'string') facts.ulcerDetails = obj.ulcerDetails.trim();
+  if (typeof obj.primarySymptomLocation === 'string') facts.primarySymptomLocation = obj.primarySymptomLocation.trim();
+  if (Array.isArray(obj.affectedRegions)) {
+    facts.affectedRegions = obj.affectedRegions.filter((r: unknown) => typeof r === 'string' && (r as string).length > 0);
+  }
+
+  const validDurations = ['less_than_2_weeks', 'two_to_four_weeks', 'more_than_one_month', 'unknown'];
+  if (validDurations.includes(obj.duration)) {
+    facts.duration = obj.duration;
+  }
+  if (validDurations.includes(obj.durationCategory)) {
+    facts.durationCategory = obj.durationCategory;
+  }
+  if (typeof obj.durationText === 'string') facts.durationText = obj.durationText.trim();
+  if (typeof obj.durationOverTwoWeeks === 'boolean') facts.durationOverTwoWeeks = obj.durationOverTwoWeeks;
+
+  if (typeof obj.pain === 'boolean') facts.pain = obj.pain;
+  if (typeof obj.mouthPainOrBurning === 'boolean') facts.mouthPainOrBurning = obj.mouthPainOrBurning;
+  if (typeof obj.symptomTrigger === 'string') facts.symptomTrigger = obj.symptomTrigger.trim();
+
+  const validColors = ['none', 'white', 'red', 'mixed'];
+  if (validColors.includes(obj.colorChanges)) facts.colorChanges = obj.colorChanges;
+
+  if (typeof obj.thickeningOrLump === 'boolean') facts.thickeningOrLump = obj.thickeningOrLump;
+  if (typeof obj.unexplainedBleeding === 'boolean') facts.unexplainedBleeding = obj.unexplainedBleeding;
+  if (typeof obj.numbnessInMouth === 'boolean') facts.numbnessInMouth = obj.numbnessInMouth;
+  if (typeof obj.reducedMouthOpening === 'boolean') facts.reducedMouthOpening = obj.reducedMouthOpening;
+  if (typeof obj.difficultySwallowing === 'boolean') facts.difficultySwallowing = obj.difficultySwallowing;
+  if (typeof obj.neckLumpOrSwelling === 'boolean') facts.neckLumpOrSwelling = obj.neckLumpOrSwelling;
+
+  const validSmokeless = ['none', 'gutka', 'khaini', 'zarda', 'tobacco_paan'];
+  if (validSmokeless.includes(obj.tobaccoSmokeless)) facts.tobaccoSmokeless = obj.tobaccoSmokeless;
+
+  const validSmoked = ['none', 'bidi', 'cigarettes', 'both'];
+  if (validSmoked.includes(obj.tobaccoSmoked)) facts.tobaccoSmoked = obj.tobaccoSmoked;
+
+  const validAreca = ['none', 'supari', 'betel_quid', 'pan_masala'];
+  if (validAreca.includes(obj.arecaOrBetelNut)) facts.arecaOrBetelNut = obj.arecaOrBetelNut;
+
+  if (typeof obj.tobaccoFrequency === 'string') facts.tobaccoFrequency = obj.tobaccoFrequency.trim();
+
+  const validAlcohol = ['none', 'rare', 'moderate', 'heavy'];
+  if (validAlcohol.includes(obj.alcoholIntake)) facts.alcoholIntake = obj.alcoholIntake;
+
+  const validAlcoholUse = ['none', 'occasional', 'regular', 'heavy', 'unknown'];
+  if (validAlcoholUse.includes(obj.alcoholUse)) facts.alcoholUse = obj.alcoholUse;
+
+  if (typeof obj.chronicIrritation === 'boolean') facts.chronicIrritation = obj.chronicIrritation;
+
+  if (Array.isArray(obj.multipleConcerns)) {
+    facts.multipleConcerns = obj.multipleConcerns.filter((c: unknown) => typeof c === 'string' && (c as string).length > 0);
+  }
+  if (Array.isArray(obj.multipleLocations)) {
+    facts.multipleLocations = obj.multipleLocations.filter((l: unknown) => typeof l === 'string' && (l as string).length > 0);
+  }
+
+  if (typeof obj.emergencyFlag === 'boolean') facts.emergencyFlag = obj.emergencyFlag;
+  if (typeof obj.emergencyReason === 'string') facts.emergencyReason = obj.emergencyReason.trim();
+  if (typeof obj.isCorrection === 'boolean') facts.isCorrection = obj.isCorrection;
+
+  return facts;
+}
+
+/**
+ * Merges structured extracted clinical facts into the persistent screening session profile.
+ */
+export function mergeExtractedFactsIntoProfile(
+  existingProfile: PatientProfile,
+  facts: ExtractedClinicalFacts,
+  rawUserText?: string
+): PatientProfile {
+  const next: PatientProfile = { ...existingProfile };
+
+  // Track raw user reported facts
+  if (rawUserText && rawUserText.trim()) {
+    const userReportedFacts = next.userReportedFacts ? [...next.userReportedFacts] : [];
+    if (!userReportedFacts.includes(rawUserText.trim())) {
+      userReportedFacts.push(rawUserText.trim());
+    }
+    next.userReportedFacts = userReportedFacts;
+  }
+
+  // Lesion / Ulcer
+  if (facts.hasLesionOrUlcer !== null && facts.hasLesionOrUlcer !== undefined) {
+    next.hasLesionOrUlcer = facts.hasLesionOrUlcer;
+    if (facts.ulcerDetails) next.ulcerDetails = facts.ulcerDetails;
+  }
+
+  // Location & Regions
+  if (facts.affectedRegions && Array.isArray(facts.affectedRegions) && facts.affectedRegions.length > 0) {
+    const existingRegions = new Set(next.affectedRegions || []);
+    if (facts.isCorrection) existingRegions.clear();
+    facts.affectedRegions.forEach(r => existingRegions.add(r));
+    next.affectedRegions = Array.from(existingRegions);
+  }
+  if (facts.primarySymptomLocation) {
+    next.primarySymptomLocation = facts.primarySymptomLocation;
+  }
+
+  // Duration
+  if (facts.duration !== null && facts.duration !== undefined) {
+    next.duration = facts.duration;
+    next.durationCategory = facts.durationCategory || facts.duration;
+    if (facts.durationText) next.durationText = facts.durationText;
+    if (facts.duration === 'unknown') {
+      next.durationOverTwoWeeks = undefined;
+      next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Symptom Duration / Chronicity']));
+    } else if (facts.durationOverTwoWeeks !== null && facts.durationOverTwoWeeks !== undefined) {
+      next.durationOverTwoWeeks = facts.durationOverTwoWeeks;
+    } else {
+      next.durationOverTwoWeeks = facts.duration === 'two_to_four_weeks' || facts.duration === 'more_than_one_month';
+    }
+  }
+
+  // Pain / Burning
+  if (facts.pain !== null && facts.pain !== undefined) {
+    next.pain = facts.pain;
+    next.mouthPainOrBurning = facts.pain;
+  }
+  if (facts.mouthPainOrBurning !== null && facts.mouthPainOrBurning !== undefined) {
+    next.mouthPainOrBurning = facts.mouthPainOrBurning;
+    if (next.pain === undefined) next.pain = facts.mouthPainOrBurning;
+  }
+  if (facts.symptomTrigger) {
+    next.symptomTrigger = facts.symptomTrigger;
+  }
+
+  // Color changes
+  if (facts.colorChanges) {
+    next.colorChanges = facts.colorChanges;
+  }
+
+  // Thickening / Lump
+  if (facts.thickeningOrLump !== null && facts.thickeningOrLump !== undefined) {
+    next.thickeningOrLump = facts.thickeningOrLump;
+  }
+
+  // Warning signs
+  if (facts.unexplainedBleeding !== null && facts.unexplainedBleeding !== undefined) {
+    next.unexplainedBleeding = facts.unexplainedBleeding;
+  }
+  if (facts.numbnessInMouth !== null && facts.numbnessInMouth !== undefined) {
+    next.numbnessInMouth = facts.numbnessInMouth;
+  }
+  if (facts.reducedMouthOpening !== null && facts.reducedMouthOpening !== undefined) {
+    next.reducedMouthOpening = facts.reducedMouthOpening;
+  }
+  if (facts.difficultySwallowing !== null && facts.difficultySwallowing !== undefined) {
+    next.difficultySwallowing = facts.difficultySwallowing;
+  }
+  if (facts.neckLumpOrSwelling !== null && facts.neckLumpOrSwelling !== undefined) {
+    next.neckLumpOrSwelling = facts.neckLumpOrSwelling;
+  }
+
+  // Habits
+  if (facts.tobaccoSmokeless !== null && facts.tobaccoSmokeless !== undefined) {
+    next.tobaccoSmokeless = facts.tobaccoSmokeless;
+  }
+  if (facts.tobaccoSmoked !== null && facts.tobaccoSmoked !== undefined) {
+    next.tobaccoSmoked = facts.tobaccoSmoked;
+  }
+  if (facts.arecaOrBetelNut !== null && facts.arecaOrBetelNut !== undefined) {
+    next.arecaOrBetelNut = facts.arecaOrBetelNut;
+  }
+  if (facts.tobaccoFrequency) {
+    next.tobaccoFrequency = facts.tobaccoFrequency;
+  }
+  if (facts.alcoholIntake !== null && facts.alcoholIntake !== undefined) {
+    next.alcoholIntake = facts.alcoholIntake;
+    if (facts.alcoholIntake === 'none') next.alcoholUse = 'none';
+    else if (facts.alcoholIntake === 'rare' || facts.alcoholIntake === 'moderate') next.alcoholUse = 'occasional';
+    else if (facts.alcoholIntake === 'heavy') next.alcoholUse = 'heavy';
+  }
+  if (facts.alcoholUse !== null && facts.alcoholUse !== undefined) {
+    next.alcoholUse = facts.alcoholUse;
+  }
+  if (facts.chronicIrritation !== null && facts.chronicIrritation !== undefined) {
+    next.chronicIrritation = facts.chronicIrritation;
+  }
+
+  // Multiple concerns & locations
+  if (facts.multipleConcerns && Array.isArray(facts.multipleConcerns)) {
+    const existingConcerns = new Set(next.multipleConcerns || []);
+    facts.multipleConcerns.forEach(c => existingConcerns.add(c));
+    next.multipleConcerns = Array.from(existingConcerns);
+  }
+  if (facts.multipleLocations && Array.isArray(facts.multipleLocations)) {
+    const existingLocations = new Set(next.reportedLocations || []);
+    facts.multipleLocations.forEach(l => existingLocations.add(l));
+    next.reportedLocations = Array.from(existingLocations);
+  }
+
+  // Emergency
+  if (facts.emergencyFlag) {
+    next.emergencyFlagTriggered = true;
+    if (facts.emergencyReason) next.emergencyReason = facts.emergencyReason;
+  }
+
+  // Re-derive confirmed positive and negative findings
+  const pos: string[] = [];
+  const neg: string[] = [];
+  if (next.hasLesionOrUlcer === true) {
+    pos.push(next.durationOverTwoWeeks ? 'Persistent Oral Sore or Lesion (> 2 Weeks)' : 'Recent Oral Ulcer / Sore (< 2 Weeks)');
+  } else if (next.hasLesionOrUlcer === false) {
+    neg.push('No active oral ulcers, sores, or indurated lesions reported');
+  }
+  if (next.unexplainedBleeding === true) pos.push('Unexplained Oral Bleeding');
+  else if (next.unexplainedBleeding === false) neg.push('No unexplained oral bleeding');
+
+  if (next.numbnessInMouth === true) pos.push('Oral Paresthesia / Numbness');
+  else if (next.numbnessInMouth === false) neg.push('No oral paresthesia or numbness');
+
+  if (next.reducedMouthOpening === true) pos.push('Restricted Mouth Opening (Trismus / OSMF Indicator)');
+  else if (next.reducedMouthOpening === false) neg.push('Normal mouth opening (no trismus)');
+
+  if (next.difficultySwallowing === true) pos.push('Dysphagia / Sensation of Food Sticking in Throat');
+  else if (next.difficultySwallowing === false) neg.push('Normal swallowing function');
+
+  if (next.neckLumpOrSwelling === true) pos.push('Palpable Neck Swelling / Firm Mass');
+  else if (next.neckLumpOrSwelling === false) neg.push('No palpable neck swelling or lump');
+
+  if (next.colorChanges === 'white') pos.push('Leukoplakic White Patch');
+  else if (next.colorChanges === 'red' || next.colorChanges === 'mixed') pos.push('Erythroplakic / Mixed Velvet Red Mucosal Change');
+
+  if (next.thickeningOrLump === true) pos.push('Mucosal Thickening or Palpable Oral Lump');
+  else if (next.thickeningOrLump === false) neg.push('No palpable mucosal thickening or oral lump');
+
+  if (next.tobaccoSmokeless && next.tobaccoSmokeless !== 'none') {
+    pos.push(`Smokeless Tobacco Exposure (${next.tobaccoSmokeless.toUpperCase()})`);
+  }
+  if (next.tobaccoSmoked && next.tobaccoSmoked !== 'none') {
+    pos.push(`Combustible Tobacco Exposure (${next.tobaccoSmoked.toUpperCase()})`);
+  }
+  if (next.arecaOrBetelNut && next.arecaOrBetelNut !== 'none') {
+    pos.push(`Areca Nut / Betel Quid (${next.arecaOrBetelNut.toUpperCase()})`);
+  }
+  if (next.alcoholIntake === 'heavy' || next.alcoholIntake === 'moderate') {
+    pos.push(next.alcoholIntake === 'heavy' ? 'Frequent / Heavy Alcohol Intake' : 'Moderate Alcohol Intake');
+  }
+
+  if (
+    next.tobaccoSmoked === 'none' &&
+    next.tobaccoSmokeless === 'none' &&
+    next.arecaOrBetelNut === 'none'
+  ) {
+    neg.push('No tobacco or areca nut use');
+  }
+  if (next.alcoholIntake === 'none' || next.alcoholUse === 'none') {
+    neg.push('Zero alcohol intake');
+  }
+
+  next.confirmedPositiveFindings = pos;
+  next.confirmedNegativeFindings = neg;
 
   return next;
 }
@@ -1919,7 +2553,7 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
   let suggestedTimeframe = '';
 
   const isHindi = profile.detectedLanguage === 'hi';
-  const isHinglish = profile.detectedLanguage === 'hinglish';
+  const isMarathi = profile.detectedLanguage === 'mr';
 
   if (
     profile.emergencyFlagTriggered ||
@@ -1933,11 +2567,11 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
         ? 'तत्काल चिकित्सकीय सहायता की आवश्यकता: आपके बताए गए लक्षणों में सांस लेने या निगलने में संभावित गंभीर समस्या शामिल है। कृपया तुरंत किसी आपातकालीन अस्पताल या चिकित्सक से व्यक्तिगत जाँच कराएं।'
         : 'शीघ्र विशेषज्ञ चिकित्सकीय जाँच की सलाह: आपके विवरण में लगातार बने रहने वाले ओरल बदलाव या मुख्य नैदानिक जोखिम कारक शामिल हैं। कृपया किसी ओरल सर्जन या डेंटिस्ट से व्यक्तिगत जाँच के लिए परामर्श लें।';
       suggestedTimeframe = profile.emergencyFlagTriggered ? 'तत्काल / 24 घंटे के भीतर' : '7 से 14 दिनों के भीतर';
-    } else if (isHinglish) {
+    } else if (isMarathi) {
       recommendation = profile.emergencyFlagTriggered
-        ? 'URGENT MEDICAL ATTENTION: Aapne saans lene ya gale me tez takleef ki baat kahi hai. Kripya turant kisi emergency hospital ya doctor ko dikhayein.'
-        : 'PROMPT PROFESSIONAL EVALUATION: Aapke chhale/lesion 2 hafton se zyada purane hain ya clinical risk factors maujood hain. Kripya kisi dentist ya specialist se direct physical examination karwayein.';
-      suggestedTimeframe = profile.emergencyFlagTriggered ? 'Immediate / 24 ghante ke andar' : '7 se 14 dino ke andar';
+        ? 'तातडीची वैद्यकीय मदत आवश्यक: आपल्या लक्षणांमध्ये श्वास घेण्यास किंवा गिळण्यास अडचण समाविष्ट आहे. कृपया त्वरित जवळच्या रुग्णालयात प्रत्यक्ष तपासणी करून घ्या.'
+        : 'तज्ज्ञ डॉक्टरांकडून तातडीने तपासणीचा सल्ला: आपल्या लक्षणांमध्ये २ आठवड्यांपेक्षा जास्त काळ टिकणारे बदल किंवा धोक्याचे घटक आहेत. कृपया दंतवैद्य किंवा ईएनटी तज्ज्ञांकडून तपासणी करून घ्या.';
+      suggestedTimeframe = profile.emergencyFlagTriggered ? 'तातडीने / २४ तासांच्या आत' : '७ ते १४ दिवसांच्या आत';
     } else {
       recommendation = profile.emergencyFlagTriggered
         ? 'URGENT MEDICAL ATTENTION RECOMMENDED: Your reported symptoms include potentially urgent airway or swallowing difficulty. Please seek immediate in-person evaluation from an emergency hospital or healthcare provider.'
@@ -1956,9 +2590,9 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
     if (isHindi) {
       recommendation = 'मध्यम स्क्रीनिंग संकेत: मुँह के ऊतकों में उल्लेखनीय बदलाव या तंबाकू/सुपारी के उपयोग की जानकारी दी गई है। यदि कोई छाला या पैच 10-14 दिनों से अधिक बना रहे या पूरी तरह ठीक न हो, तो किसी दंत चिकित्सक से व्यक्तिगत जाँच कराएं।';
       suggestedTimeframe = '2 से 3 सप्ताह के भीतर';
-    } else if (isHinglish) {
-      recommendation = 'MODERATE SCREENING INDICATION: Oral mucosal badlav ya tambaku/gutka aadat notice hui hai. Agar koi chhala 10-14 din se theek na ho, toh doctor se checkup zaroor karwayein.';
-      suggestedTimeframe = '2 se 3 hafton ke andar';
+    } else if (isMarathi) {
+      recommendation = 'मध्यम जोखीम संकेत: तोंडाच्या पेशींमधील बदल किंवा तंबाखू/सुपारीचे सेवन आढळले आहे. कोणताही फोड किंवा डाग १०-१४ दिवसांपेक्षा जास्त टिकल्यास दंतवैद्यांकडून तपासणी करून घ्या.';
+      suggestedTimeframe = '२ ते ३ आठवड्यांच्या आत';
     } else {
       recommendation =
         'MODERATE SCREENING INDICATION: Notable oral mucosal factors or tobacco/areca exposures were reported. If any sore or patch has lasted over 10-14 days or does not heal completely, have it evaluated in person by a dental professional.';
@@ -1970,9 +2604,9 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
     if (isHindi) {
       recommendation = 'कम स्क्रीनिंग संकेत: उपलब्ध जानकारी के आधार पर इस स्क्रीनिंग में कोई बड़ा चेतावनी संकेत नहीं पाया गया। यह किसी बीमारी को पूरी तरह खारिज नहीं करता। हर महीने स्वयं मुँह की जाँच करें और वर्ष में दो बार नियमित दंत परीक्षण कराएं।';
       suggestedTimeframe = 'नियमित दंत जाँच (प्रत्येक 6 महीने में)';
-    } else if (isHinglish) {
-      recommendation = 'LOW SCREENING INDICATION: Batayi gayi jankari ke hisab se koi critical warning signs nahi mile. Har mahine self-examination karein aur regular dental checkup karwayein.';
-      suggestedTimeframe = 'Routine dental checkup (har 6 mahine me)';
+    } else if (isMarathi) {
+      recommendation = 'कमी जोखीम संकेत: दिलेल्या माहितीनुसार कोणतीही गंभीर चेतावणी लक्षणे आढळली नाहीत. दरमहा स्वतः तोंड तपासा आणि दर ६ महिन्यांनी नियमित दंत तपासणी करा.';
+      suggestedTimeframe = 'नियमित दंत तपासणी (दर ६ महिन्यांनी)';
     } else {
       recommendation =
         'LOW SCREENING INDICATION: Based on the information provided, no major warning signs were identified in this screening. This does not rule out disease. Continue monthly oral self-checks and routine biannual dental examinations.';
@@ -1982,8 +2616,8 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
 
   if (findings.length === 0) {
     findings.push({
-      title: isHindi ? 'कोई तीव्र म्यूकोसल लक्षण नहीं पाए गए' : isHinglish ? 'Koi Acute Mucosal Symptom Nahi Bataya Gaya' : 'No Acute Mucosal Symptoms Reported',
-      description: isHindi ? 'आपके द्वारा दिए गए उत्तरों में लगातार बने रहने वाले छाले, पैच या निगलने में कठिनाई नहीं बताई गई है।' : isHinglish ? 'Aapke answers ke hisaab se koi persistent ulcers, patches ya swallowing difficulty nahi hai.' : 'Your self-reported answers indicate no persistent ulcers, patches, or swallowing difficulties.',
+      title: isHindi ? 'कोई तीव्र म्यूकोसल लक्षण नहीं पाए गए' : isMarathi ? 'कोणतीही तीव्र लक्षणे आढळली नाहीत' : 'No Acute Mucosal Symptoms Reported',
+      description: isHindi ? 'आपके द्वारा दिए गए उत्तरों में लगातार बने रहने वाले छाले, पैच या निगलने में कठिनाई नहीं बताई गई है।' : isMarathi ? 'आपल्या उत्तरांनुसार सतत राहणारे फोड, डाग किंवा गिळण्यास त्रास नाही.' : 'Your self-reported answers indicate no persistent ulcers, patches, or swallowing difficulties.',
       impact: 'benign',
     });
   }
@@ -1993,58 +2627,58 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
   if (profile.hasLesionOrUlcer === true) {
     if (profile.durationOverTwoWeeks === true) {
       const durationLabel = profile.duration === 'two_to_four_weeks'
-        ? (isHindi ? '2 से 4 सप्ताह' : isHinglish ? '2 se 4 hafte' : '2 to 4 weeks')
+        ? (isHindi ? '2 से 4 सप्ताह' : isMarathi ? '२ ते ४ आठवडे' : '2 to 4 weeks')
         : profile.duration === 'more_than_one_month'
-        ? (isHindi ? '1 महीने से अधिक' : isHinglish ? '1 mahine se zyada' : 'more than 1 month')
-        : (isHindi ? '2 सप्ताह से अधिक' : isHinglish ? '2 hafton se zyada' : 'over 2 weeks');
-      userFactSnippets.push(isHindi ? `मुँह का छाला (ulcer) जो ${durationLabel} से बना हुआ है` : isHinglish ? `muh me chhala jo ${durationLabel} se bana hua hai` : `a mouth sore/ulcer persisting for ${durationLabel}`);
+        ? (isHindi ? '1 महीने से अधिक' : isMarathi ? '१ महिन्यापेक्षा जास्त' : 'more than 1 month')
+        : (isHindi ? '2 सप्ताह से अधिक' : isMarathi ? '२ आठवड्यांपेक्षा जास्त' : 'over 2 weeks');
+      userFactSnippets.push(isHindi ? `मुँह का छाला (ulcer) जो ${durationLabel} से बना हुआ है` : isMarathi ? `तोंडातील फोड/अल्सर जे ${durationLabel} पासून आहे` : `a mouth sore/ulcer persisting for ${durationLabel}`);
     } else if (profile.durationOverTwoWeeks === false) {
-      userFactSnippets.push(isHindi ? 'हाल ही का मुँह का छाला (< 2 सप्ताह)' : isHinglish ? 'recent muh ka chhala (< 2 hafte)' : 'a recent mouth ulcer (< 2 weeks)');
+      userFactSnippets.push(isHindi ? 'हाल ही का मुँह का छाला (< 2 सप्ताह)' : isMarathi ? 'नुकताच झालेला तोंडातील फोड (< २ आठवडे)' : 'a recent mouth ulcer (< 2 weeks)');
     } else {
-      userFactSnippets.push(isHindi ? 'मुँह का छाला (अवधि अनिश्चित / अज्ञात)' : isHinglish ? 'muh ka chhala (duration uncertain / unknown)' : 'a mouth ulcer (duration uncertain / unverified)');
+      userFactSnippets.push(isHindi ? 'मुँह का छाला (अवधि अनिश्चित / अज्ञात)' : isMarathi ? 'तोंडातील फोड (कालावधी अनिश्चित)' : 'a mouth ulcer (duration uncertain / unverified)');
     }
   }
   if (profile.primarySymptomLocation) {
-    userFactSnippets.push(isHindi ? `${profile.primarySymptomLocation} पर स्थिति` : isHinglish ? `${profile.primarySymptomLocation} par sthiti` : `located at ${profile.primarySymptomLocation}`);
+    userFactSnippets.push(isHindi ? `${profile.primarySymptomLocation} पर स्थिति` : isMarathi ? `${profile.primarySymptomLocation} येथे` : `located at ${profile.primarySymptomLocation}`);
   }
   if (profile.mouthPainOrBurning) {
-    userFactSnippets.push(isHindi ? 'तीखा खाने पर दर्द या जलन' : isHinglish ? 'dard ya jalan (khaaskar teekha khane par)' : 'pain or burning sensation (especially with spicy food)');
+    userFactSnippets.push(isHindi ? 'तीखा खाने पर दर्द या जलन' : isMarathi ? 'तिखट खाताना जळजळ किंवा वेदना' : 'pain or burning sensation (especially with spicy food)');
   }
   if (profile.colorChanges && profile.colorChanges !== 'none') {
-    userFactSnippets.push(isHindi ? `${profile.colorChanges} रंग का म्यूकोसल पैच` : isHinglish ? `${profile.colorChanges} mucosal patch` : `a ${profile.colorChanges} mucosal tissue patch`);
+    userFactSnippets.push(isHindi ? `${profile.colorChanges} रंग का म्यूकोसल पैच` : isMarathi ? `${profile.colorChanges} रंगाचा डाग (patch)` : `a ${profile.colorChanges} mucosal tissue patch`);
   }
   if (profile.unexplainedBleeding) {
-    userFactSnippets.push(isHindi ? 'अकारण खून आना' : isHinglish ? 'unexplained bleeding' : 'unexplained oral bleeding');
+    userFactSnippets.push(isHindi ? 'अकारण खून आना' : isMarathi ? 'रक्तस्त्राव होणे' : 'unexplained oral bleeding');
   }
   if (profile.numbnessInMouth) {
-    userFactSnippets.push(isHindi ? 'मुँह में सुन्नपन' : isHinglish ? 'muh me sunnpan (numbness)' : 'numbness or paresthesia in oral tissues');
+    userFactSnippets.push(isHindi ? 'मुँह में सुन्नपन' : isMarathi ? 'तोंडात बधीरपणा' : 'numbness or paresthesia in oral tissues');
   }
   if (profile.reducedMouthOpening) {
-    userFactSnippets.push(isHindi ? 'मुँह पूरा खोलने में कठिनाई (trismus)' : isHinglish ? 'muh kholne me dikkat (trismus)' : 'difficulty opening mouth fully (trismus)');
+    userFactSnippets.push(isHindi ? 'मुँह पूरा खोलने में कठिनाई (trismus)' : isMarathi ? 'तोंड उघडण्यास त्रास (trismus)' : 'difficulty opening mouth fully (trismus)');
   }
   if (profile.tobaccoSmokeless && profile.tobaccoSmokeless !== 'none') {
-    userFactSnippets.push(isHindi ? `${profile.tobaccoSmokeless} (गुटखा/तंबाकू) का सेवन` : isHinglish ? `${profile.tobaccoSmokeless} ka sevan` : `use of ${profile.tobaccoSmokeless}`);
+    userFactSnippets.push(isHindi ? `${profile.tobaccoSmokeless} (गुटखा/तंबाकू) का सेवन` : isMarathi ? `${profile.tobaccoSmokeless} (गुटखा/तंबाखू) चे सेवन` : `use of ${profile.tobaccoSmokeless}`);
   }
   if (profile.tobaccoSmoked && profile.tobaccoSmoked !== 'none') {
     const freq = profile.tobaccoFrequency ? ` (${profile.tobaccoFrequency})` : '';
-    userFactSnippets.push(isHindi ? `${profile.tobaccoSmoked}${freq} (बीड़ी/सिगरेट) पीना` : isHinglish ? `${profile.tobaccoSmoked}${freq} peena` : `smoking ${profile.tobaccoSmoked}${freq}`);
+    userFactSnippets.push(isHindi ? `${profile.tobaccoSmoked}${freq} (बीड़ी/सिगरेट) पीना` : isMarathi ? `${profile.tobaccoSmoked}${freq} (विडी/सिगारेट) ओढणे` : `smoking ${profile.tobaccoSmoked}${freq}`);
   }
   if (profile.alcoholIntake === 'heavy' || profile.alcoholUse === 'heavy') {
-    userFactSnippets.push(isHindi ? 'नियमित/अधिक शराब का सेवन' : isHinglish ? 'regular/heavy alcohol sevan' : 'regular / heavy alcohol intake');
+    userFactSnippets.push(isHindi ? 'नियमित/अधिक शराब का सेवन' : isMarathi ? 'नियमित/जास्त मद्यपान' : 'regular / heavy alcohol intake');
   } else if (profile.alcoholIntake === 'moderate' || profile.alcoholUse === 'occasional') {
-    userFactSnippets.push(isHindi ? 'कभी-कभार शराब का सेवन' : isHinglish ? 'occasional alcohol sevan' : 'occasional / moderate alcohol intake');
+    userFactSnippets.push(isHindi ? 'कभी-कभार शराब का सेवन' : isMarathi ? 'कधीतरी मद्यपान' : 'occasional / moderate alcohol intake');
   }
 
   const summaryOfFindings = userFactSnippets.length > 0
     ? (isHindi
         ? `आपने बताया: ${userFactSnippets.join(', ')}। ये विशिष्ट विवरण आपके स्क्रीनिंग संकेत का मुख्य आधार हैं।`
-        : isHinglish
-        ? `Aapne bataya: ${userFactSnippets.join(', ')}. Ye details aapke screening concern ka basis hain.`
+        : isMarathi
+        ? `आपण नमूद केले: ${userFactSnippets.join(', ')}. हे तपशील आपल्या स्क्रीनिंग निष्कर्षांचा मुख्य आधार आहेत.`
         : `You mentioned ${userFactSnippets.join(', ')}. These specific details form the basis of your ${screeningConcern.toLowerCase()} indication.`)
     : (isHindi
         ? 'आपने मुँह में किसी सक्रिय घाव, रंग परिवर्तन या तंबाकू के उपयोग की सूचना नहीं दी है।'
-        : isHinglish
-        ? 'Aapne muh me koi active chhale, discoloration ya tobacco exposure report nahi kiya hai.'
+        : isMarathi
+        ? 'आपण तोंडात कोणताही सक्रिय फोड, डाग किंवा तंबाखू सेवनाची नोंद केलेली नाही.'
         : 'You reported no active oral sores, discoloration, or tobacco exposure.');
 
   // Helper for confirmed vs unassessed status in clinical summary
@@ -2063,12 +2697,12 @@ Date/Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle
 1. PATIENT PROFILE:
 - Age: ${profile.age || 'Not specified (Adult)'}
 - Sex: ${profile.gender || 'Not specified'}
-- Language Used: ${profile.detectedLanguage === 'hi' ? 'Hindi (हिन्दी)' : profile.detectedLanguage === 'hinglish' ? 'Hinglish' : 'English'}
+- Language Used: ${profile.detectedLanguage === 'hi' ? 'Hindi (हिन्दी)' : profile.detectedLanguage === 'mr' ? 'Marathi (मराठी)' : 'English'}
 
 2. CHIEF COMPLAINT & ANATOMICAL LOCALIZATION:
 - Chief Complaint: ${profile.mainConcern || 'Oral mucosal risk evaluation'}
 - Primary Anatomical Location: ${profile.primarySymptomLocation || (profile.affectedRegions && profile.affectedRegions.length > 0 ? profile.affectedRegions.join(', ') : 'Not localized / diffuse')}
-- Mouth Sore / Ulcer: ${getConfirmedFieldDisplay(profile.hasLesionOrUlcer, 'Active sore or ulcer reported', 'Confirmed None (No sores/ulcers)')}
+${profile.mouthMapLocations && profile.mouthMapLocations.length > 0 ? `- Confirmed Mouth Map Locations (${profile.mouthMapLocations.length}): ${profile.mouthMapLocations.map(l => `${l.area} [${l.id}]`).join(', ')}\n` : ''}${profile.photoDocumentation && profile.photoDocumentation.length > 0 ? `- Documented Oral Photos: ${profile.photoDocumentation.length} photo(s) attached for clinical reference\n` : ''}${profile.symptomProgress && profile.symptomProgress.length > 0 ? `- Longitudinal Symptom Progress Entries: ${profile.symptomProgress.length} entry/entries recorded\n` : ''}- Mouth Sore / Ulcer: ${getConfirmedFieldDisplay(profile.hasLesionOrUlcer, 'Active sore or ulcer reported', 'Confirmed None (No sores/ulcers)')}
 - Mucosal Discoloration: ${profile.colorChanges && profile.colorChanges !== 'none' ? `${profile.colorChanges.toUpperCase()} patch` : profile.colorChanges === 'none' ? 'Confirmed None (No discoloration)' : 'Not assessed / Not reported'}
 - Thickening or Lump: ${getConfirmedFieldDisplay(profile.thickeningOrLump, 'Palpable lump or thickened mucosal area', 'Confirmed None (No lump/thickening)')}
 
@@ -2148,6 +2782,20 @@ export const INITIAL_BOT_MESSAGE_HI = {
     'रोज़ गुटखा / तंबाकू का सेवन',
     'मुँह खोलने में परेशानी होती है',
     'नियमित जाँच, कोई लक्षण नहीं',
+  ],
+};
+
+export const INITIAL_BOT_MESSAGE_MR = {
+  id: 'msg-1-mr',
+  role: 'assistant' as const,
+  content: `नमस्कार 👋\nमी ओरलगार्ड एआय (OralGuard AI) आहे. मी तोंडाच्या आरोग्याविषयी (oral mucosal health) जनजागृती आणि प्राथमिक तोंडाच्या कर्करोगाच्या जोखीम तपासणीमध्ये मदत करण्यासाठी उपलब्ध आहे.\n\nमी एक प्राथमिक शैक्षणिक स्क्रीनिंग टूल आहे आणि कर्करोगाचे निदान करत नाही. आपल्या लक्षणांचे आणि सवयींचे मूल्यांकन करून डॉक्टरांकडून तपासणी करून घेणे आवश्यक आहे का, याचे मार्गदर्शन मी करेन.\n\nकृपया आपल्या शब्दांत सांगा की आपल्याला तोंडात काय त्रास किंवा बदल जाणवत आहे?`,
+  timestamp: 'Just now',
+  quickReplies: [
+    'तोंडात फोड / जखम (ulcer) आहे',
+    'पांढरा किंवा लाल डाग (patch) आहे',
+    'दररोज गुटखा / तंबाखूचे सेवन',
+    'तोंड उघडण्यास त्रास होतो',
+    'नियमित तपासणी, कोणतीही लक्षणे नाहीत',
   ],
 };
 

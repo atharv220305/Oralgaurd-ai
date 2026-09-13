@@ -1,3 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Calendar,
@@ -22,6 +27,12 @@ import {
   SlidersHorizontal,
   Loader2,
   Sparkles,
+  Search,
+  Building2,
+  AlertTriangle,
+  PhoneCall,
+  ChevronLeft,
+  Info
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ClinicProvider, BookedAppointment } from '../types';
@@ -31,7 +42,10 @@ interface AppointmentMockScreenProps {
   onBackToHome: () => void;
   onRetakeScreening: () => void;
   shareSummaryConsent?: boolean;
-  selectedLanguage?: 'en' | 'hinglish' | 'hi';
+  selectedLanguage?: 'en' | 'hinglish' | 'hi' | 'mr';
+  onOpenHelplines?: () => void;
+  onOpenEmergencyGuidance?: () => void;
+  onOpenDoctorHandoff?: () => void;
 }
 
 const CITY_PRESETS = [
@@ -39,9 +53,12 @@ const CITY_PRESETS = [
   { name: 'New Delhi', lat: 28.5672, lng: 77.2100 },
   { name: 'Bengaluru', lat: 12.9352, lng: 77.6245 },
   { name: 'Pune', lat: 18.5204, lng: 73.8567 },
+  { name: 'Nashik', lat: 19.9975, lng: 73.7898 },
   { name: 'Hyderabad', lat: 17.4326, lng: 78.4312 },
   { name: 'Chennai', lat: 13.0067, lng: 80.2570 },
   { name: 'Kolkata', lat: 22.5204, lng: 88.3533 },
+  { name: 'Nagpur', lat: 21.1458, lng: 79.0882 },
+  { name: 'Ahmedabad', lat: 23.0225, lng: 72.5714 },
 ];
 
 export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
@@ -49,9 +66,14 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
   onRetakeScreening,
   shareSummaryConsent = true,
   selectedLanguage = 'en',
+  onOpenHelplines,
+  onOpenEmergencyGuidance,
+  onOpenDoctorHandoff,
 }) => {
   const isHindi = selectedLanguage === 'hi';
-  const isHinglish = selectedLanguage === 'hinglish';
+  const isMarathi = selectedLanguage === 'mr';
+
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('All');
   const [selectedCityFilter, setSelectedCityFilter] = useState<string>('All');
   const [selectedClinic, setSelectedClinic] = useState<ClinicProvider>(MOCK_CLINICS[0]);
@@ -70,6 +92,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
   const [locationErrorMsg, setLocationErrorMsg] = useState<string | null>(null);
 
   const specialties = ['All', 'Dentist', 'Oral & Maxillofacial Surgeon', 'ENT Specialist', 'Head & Neck Oncology'];
+  const cities = ['All', 'Mumbai', 'New Delhi', 'Bengaluru', 'Pune', 'Nashik', 'Hyderabad', 'Chennai', 'Kolkata', 'Nagpur', 'Ahmedabad'];
 
   // Geolocation API detection
   const detectLocation = useCallback(() => {
@@ -114,7 +137,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
             }
           }
         } catch {
-          // Fall through to closest city estimate
+          // Fall through
         }
 
         // Proximity estimate to nearest metro landmark
@@ -159,7 +182,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
     setSelectedCityFilter('All');
   };
 
-  // Compute clinics sorted by proximity based on user geolocation
+  // Compute clinics sorted by proximity based on user geolocation & filters
   const filteredClinics = useMemo(() => {
     let list: (ClinicProvider & { distanceKm?: number; isLocalSuggestion?: boolean })[] = [...MOCK_CLINICS];
 
@@ -176,10 +199,10 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
         return c;
       });
 
-      // Sort by proximity (closest first)
+      // Sort by proximity
       list.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
 
-      // If the closest clinic is more than 35 km away, inject a tailored immediate local clinic
+      // Inject nearest provider if closest > 35km
       const closest = list[0]?.distanceKm ?? 99999;
       if (closest > 35) {
         const localClinic: ClinicProvider & { distanceKm: number; isLocalSuggestion: boolean } = {
@@ -194,6 +217,9 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
           distanceKm: 1.2,
           address: `Health Pavilion, ${detectedAreaName || 'Your Immediate Vicinity'}`,
           city: detectedAreaName || 'Local Vicinity',
+          phone: '+91 22 2417 7000',
+          area: detectedAreaName || 'Local',
+          isVerified: true,
           lat: userCoords.lat,
           lng: userCoords.lng,
           availableDates: ['Today, 4:00 PM', 'Tomorrow, 10:30 AM', 'Thursday, 2:00 PM'],
@@ -215,8 +241,21 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
       list = list.filter((c) => c.city.toLowerCase().includes(selectedCityFilter.toLowerCase()));
     }
 
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.specialist.toLowerCase().includes(q) ||
+          c.city.toLowerCase().includes(q) ||
+          (c.area && c.area.toLowerCase().includes(q)) ||
+          c.address.toLowerCase().includes(q)
+      );
+    }
+
     return list;
-  }, [userCoords, detectedAreaName, selectedSpecialty, selectedCityFilter]);
+  }, [userCoords, detectedAreaName, selectedSpecialty, selectedCityFilter, searchQuery]);
 
   // Keep selected clinic in sync with filtered list
   useEffect(() => {
@@ -250,11 +289,11 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
     setIsConfirmed(true);
   };
 
-  // State 2: Prototype Confirmation Screen (Requirement 16)
+  // State 2: Prototype Confirmation Screen
   if (isConfirmed && confirmationData) {
     return (
       <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
-        <div className="p-5 max-w-lg mx-auto w-full space-y-4 py-8">
+        <div className="p-4 sm:p-5 max-w-lg mx-auto w-full space-y-4 py-8">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -268,10 +307,10 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
               Demo Appointment Request Created
             </span>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              Consultation Scheduled (Demo)
+              {isHindi ? 'परामर्श अनुरोध तैयार (डेमो)' : 'Consultation Scheduled (Demo)'}
             </h1>
             <p className="text-xs text-slate-500 max-w-xs mx-auto">
-              This is a demonstration workflow for the Aavishkar evaluation. No actual live hospital API request has been dispatched.
+              This is a demonstration workflow for academic/evaluation purposes. No live hospital API request has been dispatched.
             </p>
           </motion.div>
 
@@ -291,12 +330,19 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
 
             <div className="space-y-3 text-xs">
               <div className="flex items-start gap-2.5">
-                <Building className="w-4 h-4 text-teal-600 flex-shrink-0 mt-0.5" />
+                <Building className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                 <div>
                   <h2 className="font-bold text-slate-900 text-sm">{confirmationData.clinic.name}</h2>
                   <p className="text-slate-500 text-[11px]">{confirmationData.clinic.specialist}</p>
                   <p className="text-teal-700 font-medium text-[11px]">{confirmationData.clinic.title}</p>
-                  <p className="text-slate-400 text-[11px]">{confirmationData.clinic.address}, {confirmationData.clinic.city}</p>
+                  <p className="text-slate-400 text-[11px]">
+                    {confirmationData.clinic.address}, {confirmationData.clinic.city}
+                  </p>
+                  {confirmationData.clinic.phone && (
+                    <p className="text-slate-600 text-[11px] font-mono mt-0.5">
+                      Phone: {confirmationData.clinic.phone}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -319,7 +365,9 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
-                <span className="text-slate-500">Patient: <strong>{confirmationData.patientName}</strong></span>
+                <span className="text-slate-500">
+                  Patient: <strong>{confirmationData.patientName}</strong>
+                </span>
                 <span className="text-slate-500">{confirmationData.contactNumber}</span>
               </div>
 
@@ -352,27 +400,37 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
               Patient Preparation Tips:
             </span>
             <ul className="list-disc list-inside space-y-1 text-slate-600 pl-1 text-[10px]">
-              <li>Do not apply topical anesthetic gels or mouthwashes 2 hours prior to clinical mucosal visualization.</li>
-              <li>Bring a list of any medications, vitamins, and past dental procedures.</li>
-              <li>Be prepared to discuss your timeline (how long the sore/patch has been present).</li>
+              <li>Do not apply topical anesthetic gels or spicy foods 2 hours prior to examination.</li>
+              <li>Bring your complete list of past medications and habit timelines.</li>
+              <li>Have the doctor inspect full buccal mucosa, tongue borders, and floor of mouth.</li>
             </ul>
           </div>
 
           <div className="pt-2 space-y-2">
+            {onOpenDoctorHandoff && (
+              <button
+                type="button"
+                onClick={onOpenDoctorHandoff}
+                className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>{isHindi ? 'डॉक्टर हैंडऑफ रिपोर्ट देखें' : 'View Doctor Handoff Report'}</span>
+              </button>
+            )}
+
             <button
               onClick={onRetakeScreening}
-              id="btn-confirm-retake"
-              className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+              className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>{isHindi ? 'नई स्क्रीनिंग शुरू करें' : 'Start New Screening Session'}</span>
             </button>
+
             <button
               onClick={onBackToHome}
-              id="btn-confirm-home"
-              className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-medium transition-colors cursor-pointer"
+              className="w-full py-2 px-4 text-slate-500 hover:text-slate-700 text-xs font-medium text-center cursor-pointer"
             >
-              {isHindi ? 'अस्वीकरण और जानकारी पर वापस जाएँ' : 'Back to Disclaimer & Info'}
+              {isHindi ? 'अस्वीकरण और होम पर वापस जाएँ' : 'Back to Home'}
             </button>
           </div>
         </div>
@@ -380,56 +438,79 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
     );
   }
 
-  // State 1: Booking Form Screen with Specialty, Hospital, Date & Time Selection
+  // State 1: Search & Selection Screen
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
-      <div className="p-4 sm:p-5 max-w-lg mx-auto w-full space-y-4 pb-8">
+      <div className="p-4 sm:p-5 max-w-lg mx-auto w-full space-y-4 pb-12">
         <div className="pt-1">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-              Demo Referral Workflow
+              Specialist & Hospital Directory
             </span>
             <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-              Prototype Demonstration
+              Demo Booking Workflow
             </span>
           </div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 mt-0.5">
-            Book In-Person Consultation
+            {isHindi ? 'अस्पताल व डॉक्टर खोजें' : 'Smart Hospital & Doctor Finder'}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Connect with an oral specialist for tactile mucosal inspection and physical examination.
+            Locate specialized oral oncology and dental referral centers for in-person visual and palpation evaluation.
           </p>
         </div>
 
-        {/* Step 1: Specialty Selection (Requirement 16) */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700 block">
-            1. Select Specialty
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {specialties.map((spec) => (
-              <button
-                key={spec}
-                type="button"
-                onClick={() => setSelectedSpecialty(spec)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
-                  selectedSpecialty === spec
-                    ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-semibold'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-teal-300'
-                }`}
+        {/* Search Bar & City Selector */}
+        <div className="space-y-2">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by hospital, doctor name, area, or landmark..."
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="text-[10.5px] font-bold text-slate-500 block mb-1">City Filter:</label>
+              <select
+                value={selectedCityFilter}
+                onChange={(e) => setSelectedCityFilter(e.target.value)}
+                className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-medium"
               >
-                {spec}
-              </button>
-            ))}
+                {cities.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex-1">
+              <label className="text-[10.5px] font-bold text-slate-500 block mb-1">Specialty:</label>
+              <select
+                value={selectedSpecialty}
+                onChange={(e) => setSelectedSpecialty(e.target.value)}
+                className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-medium"
+              >
+                {specialties.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Geolocation Suggestions & Regional Filter */}
+        {/* Geolocation Suggestions */}
         <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
               <LocateFixed className="w-4 h-4 text-teal-600" />
-              <span>Nearby Provider Suggestions (Geolocation)</span>
+              <span>Nearby Provider Suggestions</span>
             </div>
 
             <button
@@ -439,49 +520,31 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
               className="flex items-center gap-1 text-[11px] font-semibold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-lg border border-teal-200/80 transition-all cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-3 h-3 ${locationStatus === 'detecting' ? 'animate-spin' : ''}`} />
-              <span>{locationStatus === 'detecting' ? 'Detecting...' : 'Detect My Location'}</span>
+              <span>{locationStatus === 'detecting' ? 'Detecting...' : 'Detect Location'}</span>
             </button>
           </div>
-
-          {/* Status info */}
-          {locationStatus === 'detecting' && (
-            <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
-              <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin flex-shrink-0" />
-              <span>Querying browser Geolocation API for your local area...</span>
-            </div>
-          )}
 
           {locationStatus === 'detected' && (
             <div className="flex items-center justify-between text-xs bg-teal-50/80 border border-teal-200 rounded-lg p-2 text-teal-900">
               <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                 <span>
-                  Showing dental & clinical providers near: <strong>{detectedAreaName || 'Your Area'}</strong>
+                  Near: <strong>{detectedAreaName || 'Your Area'}</strong>
                 </span>
               </div>
-              <span className="text-[10px] font-bold text-teal-800 bg-white px-2 py-0.5 rounded border border-teal-200 flex-shrink-0">
-                Sorted by Proximity
+              <span className="text-[10px] font-bold text-teal-800 bg-white px-2 py-0.5 rounded border border-teal-200 shrink-0">
+                Proximity Sorted
               </span>
             </div>
           )}
 
-          {(locationStatus === 'denied' || locationStatus === 'unavailable') && (
-            <div className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-900">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-              <div className="flex-1">
-                <span>{locationErrorMsg || 'Location access unavailable. Showing all regional clinical providers.'}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Quick Metro Presets / Testing buttons */}
+          {/* Quick Metro Presets */}
           <div className="pt-1 border-t border-slate-100">
             <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
-              <span>Quick Area Presets:</span>
-              <span className="text-[10px] text-slate-400">Tap to test proximity sorting</span>
+              <span>Quick Metro Cities:</span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {CITY_PRESETS.map((p) => {
+              {CITY_PRESETS.slice(0, 6).map((p) => {
                 const isActive = detectedAreaName?.toLowerCase().includes(p.name.toLowerCase());
                 return (
                   <button
@@ -506,14 +569,11 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-700 block">
-              2. Choose Hospital / Specialized Center
+              Choose Hospital / Specialist ({filteredClinics.length})
             </label>
-            <span className="text-[11px] text-slate-500">
-              {filteredClinics.length} provider{filteredClinics.length !== 1 ? 's' : ''} available
-            </span>
           </div>
 
-          <div className="space-y-2 max-h-64 overflow-y-auto pr-0.5">
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
             {filteredClinics.map((clinic) => {
               const isSelected = selectedClinic.id === clinic.id;
               const isLocalSuggestion = (clinic as unknown as { isLocalSuggestion?: boolean }).isLocalSuggestion;
@@ -534,9 +594,9 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
                         <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
                           {clinic.specialtyType}
                         </span>
-                        {isLocalSuggestion && (
-                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            Nearest Local Provider
+                        {clinic.publicHospitalType && (
+                          <span className="text-[10px] font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {clinic.publicHospitalType}
                           </span>
                         )}
                         <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
@@ -548,26 +608,43 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
                       <h3 className="text-xs font-bold text-slate-900 mt-1">{clinic.name}</h3>
                       <p className="text-[11px] text-slate-600 font-medium">{clinic.specialist}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">
-                        {clinic.address}, {clinic.city} • ★ {clinic.rating} ({clinic.reviewsCount} reviews)
+                        {clinic.address}, {clinic.city} {clinic.area ? `(${clinic.area})` : ''} • ★ {clinic.rating} ({clinic.reviewsCount} reviews)
                       </p>
+
+                      {clinic.phone && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <a
+                            href={`tel:${clinic.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[10.5px] font-bold text-teal-700 hover:underline flex items-center gap-1"
+                          >
+                            <Phone className="w-3 h-3 text-teal-600" />
+                            <span>{clinic.phone}</span>
+                          </a>
+                        </div>
+                      )}
                     </div>
 
                     {isSelected && (
-                      <CheckCircle2 className="w-4 h-4 text-teal-600 flex-shrink-0 mt-1" />
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-1" />
                     )}
                   </div>
                 </div>
               );
             })}
+
+            {filteredClinics.length === 0 && (
+              <div className="p-6 text-center bg-white rounded-xl border border-slate-200 text-xs text-slate-500">
+                No matching clinics found for your filters. Try selecting "All" cities or clearing the search bar.
+              </div>
+            )}
           </div>
         </div>
 
         {/* Step 3: Date & Time Slot Selection */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 block">
-              3. Available Date
-            </label>
+            <label className="text-xs font-bold text-slate-700 block">Available Date</label>
             <select
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
@@ -582,9 +659,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 block">
-              4. Time Slot
-            </label>
+            <label className="text-xs font-bold text-slate-700 block">Time Slot</label>
             <select
               value={selectedTime}
               onChange={(e) => setSelectedTime(e.target.value)}
@@ -601,9 +676,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
 
         {/* Step 4: Patient Information Form */}
         <form onSubmit={handleConfirmMockBooking} className="space-y-3 pt-2">
-          <label className="text-xs font-bold text-slate-700 block">
-            5. Patient Contact Details
-          </label>
+          <label className="text-xs font-bold text-slate-700 block">Patient Details for Demo Referral</label>
 
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl">
@@ -635,12 +708,12 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
           <div className="p-2.5 rounded-xl bg-teal-50/70 border border-teal-200/80 text-[11px] text-teal-900 flex items-center gap-2">
             {shareSummaryConsent ? (
               <>
-                <FileCheck className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                <FileCheck className="w-4 h-4 text-teal-600 shrink-0" />
                 <span>Your structured screening summary will be shared with the consulting specialist.</span>
               </>
             ) : (
               <>
-                <Lock className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                <Lock className="w-4 h-4 text-slate-600 shrink-0" />
                 <span>Summary kept private: Personal screening report will not be attached.</span>
               </>
             )}
@@ -648,13 +721,37 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
 
           <button
             type="submit"
-            id="btn-submit-appointment"
             className="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-sm shadow-teal-700/20 transition-all cursor-pointer mt-3"
           >
             <span>Confirm Demo Appointment</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        {/* Quick External Links (Helplines & Emergency) */}
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+          {onOpenHelplines && (
+            <button
+              type="button"
+              onClick={onOpenHelplines}
+              className="py-2.5 px-3 bg-white hover:bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold text-teal-700 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-teal-600" />
+              <span>National Helplines</span>
+            </button>
+          )}
+
+          {onOpenEmergencyGuidance && (
+            <button
+              type="button"
+              onClick={onOpenEmergencyGuidance}
+              className="py-2.5 px-3 bg-white hover:bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-700 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+              <span>Emergency Signs</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

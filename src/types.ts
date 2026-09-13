@@ -1,4 +1,21 @@
-export type Screen = 'splash' | 'welcome' | 'chat' | 'result' | 'appointment';
+export type Screen =
+  | 'splash'
+  | 'welcome'
+  | 'chat'
+  | 'result'
+  | 'appointment'
+  | 'mouth_scanner'
+  | 'mouth_map'
+  | 'symptom_tracker'
+  | 'cessation_support'
+  | 'awareness_hub'
+  | 'doctor_handoff'
+  | 'health_helplines'
+  | 'emergency_guidance'
+  | 'ask_oralguard'
+  | 'follow_up';
+
+export type AppLanguage = 'en' | 'hi' | 'mr';
 
 export type RiskLevel = 'low' | 'medium' | 'high';
 
@@ -16,12 +33,130 @@ export interface ChatMessage {
   isEmergencyAlert?: boolean;
 }
 
+export interface PhotoDocumentationItem {
+  id: string;
+  imageData: string;
+  location: string | null;
+  locationName?: string;
+  note: string;
+  capturedAt: string;
+}
+
+export interface MouthMapLocationItem {
+  id: string;
+  area: string;
+  hindiName?: string;
+  marathiName?: string;
+  confirmed: boolean;
+}
+
+export type SymptomProgressStatus = 'better' | 'same' | 'worse' | 'gone';
+
+export interface SymptomProgressEntry {
+  id: string;
+  concernId: string | null;
+  symptom: string;
+  location: string | null;
+  status: SymptomProgressStatus;
+  note: string;
+  recordedAt: string;
+}
+
+// Batch 4: Follow-up & Reminders
+export type FollowUpStatus = 'upcoming' | 'completed' | 'cancelled';
+
+export interface FollowUpItem {
+  id: string;
+  concernId: string | null;
+  reason: string;
+  scheduledDate: string; // YYYY-MM-DD
+  note: string;
+  status: FollowUpStatus;
+  createdAt: string;
+  completedAt?: string;
+  mouthLocation?: string;
+}
+
+// Batch 2: Tobacco & Areca Cessation Types
+export type TobaccoUseStatus = 'current' | 'reduced' | 'quit' | 'never' | 'unknown';
+export type CessationGoal = 'reduce' | 'quit' | 'learn_more' | 'none' | 'unknown';
+
+export interface TobaccoProductItem {
+  id: string;
+  type: string;
+  frequency: string;
+  quantity: string;
+  duration: string;
+  notes?: string;
+}
+
+export interface CessationLogEntry {
+  id: string;
+  date: string;
+  cravingLevel: 'mild' | 'moderate' | 'strong' | 'none';
+  actionTaken: 'resisted' | 'reduced_intake' | 'used_substitute' | 'slipped' | 'stayed_clean';
+  substituteUsed?: string;
+  notes?: string;
+}
+
+export interface TobaccoCessationPlan {
+  status: TobaccoUseStatus;
+  products: TobaccoProductItem[];
+  previousQuitAttempts: string;
+  goal: CessationGoal;
+  targetDate?: string;
+  reasonsToQuit?: string[];
+  daysStreak?: number;
+  lastProgressNote?: string;
+  updatedAt: string;
+}
+
+// Batch 2: Oral Health Awareness Hub Types
+export type AwarenessCategoryKey =
+  | 'all'
+  | 'cancer_awareness'
+  | 'warning_signs'
+  | 'oral_hygiene'
+  | 'tobacco_supari_risks'
+  | 'educational_videos'
+  | 'trusted_organizations';
+
+export interface AwarenessArticle {
+  id: string;
+  category: AwarenessCategoryKey;
+  title: string;
+  titleHi?: string;
+  titleMr?: string;
+  titleHinglish?: string;
+  subtitle: string;
+  subtitleHi?: string;
+  subtitleMr?: string;
+  subtitleHinglish?: string;
+  readTime: string;
+  iconName: string;
+  badge?: string;
+  summary: string;
+  summaryHi?: string;
+  summaryMr?: string;
+  keyPoints: string[];
+  keyPointsHi?: string[];
+  keyPointsMr?: string[];
+  clinicalSignificance?: string;
+  whenToConsultDoctor?: string;
+  practicalAction?: string;
+  trustedSourceAttribution?: string;
+  relevantFindingTriggers?: string[]; // Triggers personalization banner if profile matches
+}
+
 export interface PatientProfile {
-  // Personal Info
+  // Personal Info (Voluntary)
+  patientName?: string;
+  patientAge?: string;
+  patientSex?: string;
   age?: string;
   gender?: string;
   mainConcern?: string;
-  detectedLanguage?: 'en' | 'hi' | 'hinglish';
+  detectedLanguage?: AppLanguage;
 
   // Symptoms
   hasLesionOrUlcer?: boolean;
@@ -47,6 +182,18 @@ export interface PatientProfile {
   neckLumpOrSwelling?: boolean;
   progression?: 'improving' | 'worsening' | 'unchanged' | 'fluctuating';
 
+  // Batch 1 Roadmap Extensions
+  photoDocumentation?: PhotoDocumentationItem[];
+  mouthMapLocations?: MouthMapLocationItem[];
+  symptomProgress?: SymptomProgressEntry[];
+
+  // Batch 2 Roadmap Extensions
+  tobaccoUse?: TobaccoCessationPlan;
+  cessationLogs?: CessationLogEntry[];
+
+  // Batch 4 Roadmap Extensions
+  followUps?: FollowUpItem[];
+
   // Risk Factors
   tobaccoSmoked?: 'none' | 'bidi' | 'cigarettes' | 'both';
   tobaccoSmokeless?: 'none' | 'gutka' | 'khaini' | 'zarda' | 'tobacco_paan';
@@ -64,11 +211,46 @@ export interface PatientProfile {
   emergencyReason?: string;
 
   // Evidence & Provenance Tracking (V2.1.2 Data Integrity Patch)
+  multipleConcerns?: string[];
+  reportedLocations?: string[];
   askedQuestions?: string[];
   userReportedFacts?: string[];
   confirmedPositiveFindings?: string[];
   confirmedNegativeFindings?: string[];
   unknownFindings?: string[];
+}
+
+export interface ExtractedClinicalFacts {
+  hasLesionOrUlcer?: boolean | null;
+  ulcerDetails?: string | null;
+  primarySymptomLocation?: string | null;
+  affectedRegions?: string[] | null;
+  duration?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown' | null;
+  durationCategory?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown' | null;
+  durationText?: string | null;
+  durationOverTwoWeeks?: boolean | null;
+  pain?: boolean | null;
+  mouthPainOrBurning?: boolean | null;
+  symptomTrigger?: string | null;
+  colorChanges?: 'none' | 'white' | 'red' | 'mixed' | null;
+  thickeningOrLump?: boolean | null;
+  unexplainedBleeding?: boolean | null;
+  numbnessInMouth?: boolean | null;
+  reducedMouthOpening?: boolean | null;
+  difficultySwallowing?: boolean | null;
+  neckLumpOrSwelling?: boolean | null;
+  tobaccoSmokeless?: 'none' | 'gutka' | 'khaini' | 'zarda' | 'tobacco_paan' | null;
+  tobaccoSmoked?: 'none' | 'bidi' | 'cigarettes' | 'both' | null;
+  arecaOrBetelNut?: 'none' | 'supari' | 'betel_quid' | 'pan_masala' | null;
+  tobaccoFrequency?: string | null;
+  alcoholIntake?: 'none' | 'rare' | 'moderate' | 'heavy' | null;
+  alcoholUse?: 'none' | 'occasional' | 'regular' | 'heavy' | 'unknown' | null;
+  chronicIrritation?: boolean | null;
+  multipleConcerns?: string[] | null;
+  multipleLocations?: string[] | null;
+  emergencyFlag?: boolean | null;
+  emergencyReason?: string | null;
+  isCorrection?: boolean | null;
 }
 
 // Retain compatibility with legacy indicators
@@ -115,6 +297,12 @@ export interface ScreeningSession {
   currentClinicalStep?: ClinicalStepKey;
   profile: PatientProfile;
   mouthMapLocation?: string | null;
+  mouthMapLocations?: MouthMapLocationItem[];
+  photoDocumentation?: PhotoDocumentationItem[];
+  symptomProgress?: SymptomProgressEntry[];
+  tobaccoUse?: TobaccoCessationPlan;
+  cessationLogs?: CessationLogEntry[];
+  followUps?: FollowUpItem[];
   // Patient-supported facts for state validation (Section 9)
   duration?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
   location?: string;
@@ -164,11 +352,45 @@ export interface ClinicProvider {
   distance: string;
   address: string;
   city: string;
+  area?: string;
+  phone?: string;
+  website?: string;
+  publicHospitalType?: string;
+  isVerified?: boolean;
   lat?: number;
   lng?: number;
   availableDates: string[];
   availableTimes: string[];
   badge: string;
+}
+
+export interface HealthHelpline {
+  id: string;
+  name: string;
+  hindiName?: string;
+  marathiName?: string;
+  phone: string;
+  dialNumber: string; // digits only for tel:
+  purpose: string;
+  purposeHi?: string;
+  purposeMr?: string;
+  availability: string;
+  region: string;
+  authority: string;
+  category: 'emergency' | 'cessation' | 'general_health' | 'insurance_public';
+  isTollFree: boolean;
+  notes?: string;
+}
+
+export interface EmergencyWarningSign {
+  id: string;
+  title: string;
+  titleHi?: string;
+  titleMr?: string;
+  symptomSign: string;
+  whyUrgent: string;
+  immediateAction: string;
+  severity: 'critical' | 'urgent';
 }
 
 export interface BookedAppointment {
@@ -198,6 +420,7 @@ export interface OralRegion {
   id: string;
   name: string;
   hindiName: string;
+  marathiName?: string;
   riskLevel: 'high_risk' | 'moderate_risk' | 'general';
   description: string;
   clinicalSignificance: string;
