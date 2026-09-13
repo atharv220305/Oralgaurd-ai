@@ -1,0 +1,6 @@
+{
+  "name": "OralGuard AI",
+  "description": "Mobile-first oral cancer early screening and awareness prototype providing conversational risk evaluation, clinical guidelines, and appointment scheduling mockup.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
