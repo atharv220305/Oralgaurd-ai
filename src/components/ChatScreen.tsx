@@ -49,6 +49,9 @@ import {
   extractPatientProfileFromText,
   evaluateClinicalIndicators,
   getScreeningQuestionsStatus,
+  validateExtractedFacts,
+  mergeExtractedFactsIntoSession,
+  extractStructuredFactsLocally,
 } from '../data/clinicalKnowledge';
 import { generateAdaptiveDialogueTurn } from '../data/conversationalEngine';
 import { InteractiveMouthMap } from './InteractiveMouthMap';
@@ -451,54 +454,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setMessages(newHistory);
     setIsTyping(true);
 
-    // 1. Locally parse user input against persistent screeningSession state object
+    // 1. Structured local extraction & merge into single-source-of-truth screeningSession
     const lastAssistantMsg =
       screeningSession.lastAssistantQuestion ||
       [...messages].reverse().find((m) => m.role === 'assistant')?.content;
 
-    const profileWithLockedLanguage: PatientProfile = {
+    const baseProfile: PatientProfile = {
       ...screeningSession.profile,
       detectedLanguage: selectedLanguage,
     };
 
-    const updatedProfile = extractPatientProfileFromText(
-      content,
-      profileWithLockedLanguage,
-      lastAssistantMsg
-    );
-    // Strict language lock: NEVER allow user free-text to reset or override language
-    updatedProfile.detectedLanguage = selectedLanguage;
-    setIndicators(updatedProfile);
+    // Extract facts locally from user message
+    const initialFacts = extractStructuredFactsLocally(content, baseProfile, lastAssistantMsg);
+    let activeSession = mergeExtractedFactsIntoSession(screeningSession, initialFacts, content);
+    activeSession.profile.detectedLanguage = selectedLanguage;
+    activeSession.lastUserResponse = content;
+    
+    setIndicators(activeSession.profile);
+    setScreeningSession(activeSession);
+    persistScreeningSession(activeSession);
 
-    // Evaluate clinical indicators to determine answered vs unanswered indicators
-    const { answeredIndicators, unansweredIndicators, forbiddenTopics } =
-      evaluateClinicalIndicators(updatedProfile);
-
-    const nextStep = screeningSession.turnCount + 1;
+    const nextStep = activeSession.turnCount;
     setExchangesCount(nextStep);
 
-    // Update persistent screeningSession state object locally before triggering API prompt
-    const newlyEvaluatedFieldKeys = answeredIndicators.map((item) => String(item.key));
-    const nextSession: ScreeningSession = {
-      ...screeningSession,
-      profile: updatedProfile,
-      lastUserResponse: content,
-      turnCount: nextStep,
-      evaluatedFields: newlyEvaluatedFieldKeys,
-      emergencyTriggered: Boolean(updatedProfile.emergencyFlagTriggered),
-      duration: updatedProfile.duration,
-      location: updatedProfile.primarySymptomLocation || (updatedProfile.affectedRegions && updatedProfile.affectedRegions.length > 0 ? updatedProfile.affectedRegions.join(', ') : undefined),
-      symptom: updatedProfile.hasLesionOrUlcer ? 'mouth sore / ulcer' : undefined,
-      pain: updatedProfile.pain ?? updatedProfile.mouthPainOrBurning,
-      trigger: updatedProfile.symptomTrigger,
-      lastUpdatedAt: Date.now(),
-    };
-
-    setScreeningSession(nextSession);
-    persistScreeningSession(nextSession);
-
     // 2. Fast track if user explicitly taps view results AND screening is ready
-    const evalState = getScreeningQuestionsStatus(updatedProfile);
+    const evalState = getScreeningQuestionsStatus(activeSession.profile);
     const isRequestingResults =
       content.toLowerCase().includes('view my screening') ||
       content.toLowerCase().includes('view result') ||
@@ -510,16 +490,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     if (isRequestingResults && evalState.isReadyForEvaluation) {
       setTimeout(() => {
         setIsTyping(false);
-        onCompleteScreening(updatedProfile);
+        onCompleteScreening(activeSession.profile);
       }, 500);
       return;
     }
 
-    // 3. Immediate local resolution only for emergency red flags
-    const isEmergency = Boolean(updatedProfile.emergencyFlagTriggered);
-
-    if (isEmergency) {
-      const turn = generateAdaptiveDialogueTurn(content, updatedProfile, newHistory, nextStep);
+    // 3. Immediate local resolution for emergency red flags
+    if (activeSession.profile.emergencyFlagTriggered) {
+      const turn = generateAdaptiveDialogueTurn(content, activeSession.profile, newHistory, nextStep);
 
       setTimeout(() => {
         setMessages((prev) => [
@@ -535,7 +513,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         ]);
 
         const finalizedSession: ScreeningSession = {
-          ...nextSession,
+          ...activeSession,
           lastAssistantQuestion: turn.replyText,
           isComplete: Boolean(turn.isReadyForEvaluation),
           emergencyTriggered: true,
@@ -550,7 +528,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       return;
     }
 
-    // 4. Construct a filtered context window for the assistant API before triggering prompt.
+    // 4. Clinical Context & Filter preparation for Gemini
+    const { answeredIndicators, unansweredIndicators, forbiddenTopics } =
+      evaluateClinicalIndicators(activeSession.profile);
+
     const filteredContextMessages: Array<{ role: string; content: string }> = [];
 
     filteredContextMessages.push({
@@ -602,7 +583,7 @@ Patient's latest message: "${content}"`,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: filteredContextMessages,
-          currentProfile: updatedProfile,
+          currentProfile: activeSession.profile,
           language: selectedLanguage,
           previouslyAnsweredIndicators: answeredIndicators.map((i) => `${i.label}: ${i.valueDisplay}`),
           forbiddenTopics,
@@ -615,10 +596,18 @@ Patient's latest message: "${content}"`,
       if (response.ok) {
         const data = await response.json();
         if (data.reply) {
-          const turn = generateAdaptiveDialogueTurn(content, updatedProfile, newHistory, nextStep);
+          // 5. Merge Gemini extracted facts into single-source-of-truth screeningSession
+          if (data.extractedFacts && typeof data.extractedFacts === 'object') {
+            const validatedFacts = validateExtractedFacts(data.extractedFacts);
+            activeSession = mergeExtractedFactsIntoSession(activeSession, validatedFacts, content);
+            activeSession.profile.detectedLanguage = selectedLanguage;
+            setIndicators(activeSession.profile);
+          }
+
+          const statusAfterFacts = getScreeningQuestionsStatus(activeSession.profile);
+          const turn = generateAdaptiveDialogueTurn(content, activeSession.profile, newHistory, nextStep);
 
           let replyText = data.reply;
-
           if (turn.isReadyForEvaluation) {
             replyText = turn.replyText;
           }
@@ -636,15 +625,16 @@ Patient's latest message: "${content}"`,
               content: replyText,
               timestamp: 'Just now',
               quickReplies: turn.isReadyForEvaluation ? turn.suggestedQuickReplies : dynamicReplies,
-              isEmergencyAlert: updatedProfile.emergencyFlagTriggered,
+              isEmergencyAlert: activeSession.profile.emergencyFlagTriggered,
             },
           ]);
 
           const finalizedSession: ScreeningSession = {
-            ...nextSession,
+            ...activeSession,
             lastAssistantQuestion: replyText,
-            isComplete: Boolean(turn.isReadyForEvaluation),
-            emergencyTriggered: Boolean(updatedProfile.emergencyFlagTriggered),
+            isComplete: Boolean(statusAfterFacts.isReadyForEvaluation || turn.isReadyForEvaluation),
+            assessmentReady: Boolean(statusAfterFacts.isReadyForEvaluation || turn.isReadyForEvaluation),
+            emergencyTriggered: Boolean(activeSession.profile.emergencyFlagTriggered),
             lastUpdatedAt: Date.now(),
           };
 
@@ -659,7 +649,7 @@ Patient's latest message: "${content}"`,
     }
 
     // Local Adaptive Clinical Dialogue Turn Fallback
-    const turn = generateAdaptiveDialogueTurn(content, updatedProfile, newHistory, nextStep);
+    const turn = generateAdaptiveDialogueTurn(content, activeSession.profile, newHistory, nextStep);
 
     setMessages((prev) => [
       ...prev,
@@ -669,15 +659,15 @@ Patient's latest message: "${content}"`,
         content: turn.replyText,
         timestamp: 'Just now',
         quickReplies: turn.suggestedQuickReplies,
-        isEmergencyAlert: turn.isEmergencyAlert || updatedProfile.emergencyFlagTriggered,
+        isEmergencyAlert: turn.isEmergencyAlert || activeSession.profile.emergencyFlagTriggered,
       },
     ]);
 
     const finalizedSession: ScreeningSession = {
-      ...nextSession,
+      ...activeSession,
       lastAssistantQuestion: turn.replyText,
       isComplete: Boolean(turn.isReadyForEvaluation),
-      emergencyTriggered: Boolean(turn.isEmergencyAlert || updatedProfile.emergencyFlagTriggered),
+      emergencyTriggered: Boolean(turn.isEmergencyAlert || activeSession.profile.emergencyFlagTriggered),
       lastUpdatedAt: Date.now(),
     };
 

@@ -114,13 +114,14 @@ function buildNaturalFactAcknowledgment(
     lower.includes('आठवत नाही');
 
   if (isCorrection) {
+    const loc = profile.primarySymptomLocation;
     if (lang === 'hi') {
-      return 'सुधार नोट कर लिया गया है। जानकारी अपडेट कर दी गई है। ';
+      return `सुधार नोट कर लिया गया है। जानकारी अपडेट कर दी गई है${loc ? ` (${loc})` : ''}। `;
     }
     if (lang === 'mr') {
-      return 'दुरुस्तीची नोंद घेतली आहे. माहिती अद्ययावत केली गेली आहे. ';
+      return `दुरुस्तीची नोंद घेतली आहे. माहिती अद्ययावत केली गेली आहे${loc ? ` (${loc})` : ''}. `;
     }
-    return 'Got it, thank you for clarifying that update. ';
+    return `Got it, thank you for clarifying that update. I've noted that it is on your ${loc || 'mouth'}. `;
   }
 
   if (isUncertainty) {
@@ -190,6 +191,66 @@ function buildNaturalFactAcknowledgment(
         lower.includes('jalan') ||
         lower.includes('jaljal'))
   );
+
+  const hasBleedInTurn = Boolean(
+    profile.unexplainedBleeding &&
+      (lower.includes('bleed') ||
+        lower.includes('blood') ||
+        lower.includes('khoon') ||
+        lower.includes('rakta') ||
+        lower.includes('gum') ||
+        lower.includes('brush'))
+  );
+
+  // Multi-concern: Sore on tongue for 3 weeks AND bleeding gums when brushing
+  if (hasSoreInTurn && hasDurInTurn && hasBleedInTurn) {
+    const durDescEn = profile.durationText || 'about three weeks';
+    let locDescEn = 'on your tongue';
+    if (profile.primarySymptomLocation?.toLowerCase().includes('left')) {
+      locDescEn = 'on the left side of your tongue';
+    } else if (profile.primarySymptomLocation?.toLowerCase().includes('right')) {
+      locDescEn = 'on the right side of your tongue';
+    }
+
+    if (lang === 'en') {
+      return `Thanks — I understand that you've had a sore ${locDescEn} for ${durDescEn}, and also notice bleeding from your gums when brushing. I'd like to check for any warning signs. `;
+    }
+    if (lang === 'hi') {
+      return `धन्यवाद — मैं समझ गया कि आपको लगभग ${durDescEn} से जीभ पर एक छाला है, और ब्रश करते समय मसूड़ों से खून भी आता है। मैं कुछ महत्वपूर्ण चेतावनी संकेतों की जाँच करना चाहता हूँ। `;
+    }
+    if (lang === 'mr') {
+      return `धन्यवाद — मला समजले की आपल्याला साधारण ${durDescEn} पासून जिभेवर एक फोड आहे, आणि ब्रश करताना हिरड्यांमधून रक्तही येते. मी काही महत्त्वाच्या चेतावणी लक्षणांची तपासणी करू इच्छितो. `;
+    }
+  }
+
+  // Multi-fact Negation: White patch + non-smoker / non-drinker
+  const hasWhitePatchInTurn = Boolean(
+    (profile.colorChanges === 'white' || lower.includes('white patch') || lower.includes('safed')) &&
+      (lower.includes('patch') || lower.includes('white') || lower.includes('safed') || lower.includes('pandhra'))
+  );
+  const hasHabitNegationInTurn = Boolean(
+    (profile.tobaccoSmoked === 'none' || profile.tobaccoSmokeless === 'none') &&
+      (profile.alcoholIntake === 'none' || profile.alcoholUse === 'none') &&
+      (lower.includes("don't smoke") ||
+        lower.includes('dont smoke') ||
+        lower.includes('not smoke') ||
+        lower.includes('neither smoke') ||
+        (lower.includes('smoke') && lower.includes('drink') && (lower.includes('not') || lower.includes('no') || lower.includes("don't"))))
+  );
+
+  if (hasWhitePatchInTurn && hasHabitNegationInTurn) {
+    const locDescEn = profile.primarySymptomLocation ? `inside your ${profile.primarySymptomLocation.toLowerCase()}` : 'in your mouth';
+    const durDescEn = profile.durationText || (profile.duration === 'more_than_one_month' ? 'for about a month' : 'over two weeks');
+    if (lang === 'en') {
+      return `Thank you for sharing that. I've noted the white patch ${locDescEn} present ${durDescEn}, as well as that you do not smoke or drink alcohol. `;
+    }
+    if (lang === 'hi') {
+      return `जानकारी साझा करने के लिए धन्यवाद। मैंने नोट कर लिया है कि आपके गाल के अंदर ${durDescEn} से एक सफ़ेद पैच है, और आप तंबाकू या शराब का सेवन नहीं करते हैं। `;
+    }
+    if (lang === 'mr') {
+      return `माहिती दिल्याबद्दल धन्यवाद. मी नोंद घेतली आहे की आपल्या गालाच्या आत ${durDescEn} पासून पांढरा डाग आहे, तसेच आपण तंबाखू किंवा मद्यपान करत नाही. `;
+    }
+  }
 
   // If patient provided both lesion location and duration together in natural language
   if (hasSoreInTurn && hasLocInTurn && hasDurInTurn) {

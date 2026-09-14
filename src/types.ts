@@ -65,6 +65,37 @@ export interface SymptomProgressEntry {
 // Batch 4: Follow-up & Reminders
 export type FollowUpStatus = 'upcoming' | 'completed' | 'cancelled';
 
+export type ConcernType =
+  | 'lesion_ulcer'
+  | 'color_change'
+  | 'bleeding'
+  | 'lump_thickening'
+  | 'trismus'
+  | 'dysphagia'
+  | 'paresthesia'
+  | 'pain'
+  | 'chronic_irritation'
+  | 'other';
+
+export interface ClinicalConcern {
+  id: string;
+  type: ConcernType;
+  description: string;
+  locations: string[];
+  duration?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
+  durationCategory?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
+  durationText?: string;
+  durationOverTwoWeeks?: boolean;
+  pain?: boolean;
+  symptomTrigger?: string;
+  color?: 'none' | 'white' | 'red' | 'mixed' | 'unknown';
+  status: 'active' | 'resolved' | 'monitoring';
+  isPrimary?: boolean;
+  evidenceSnippets?: string[];
+  detectedAt?: number;
+  lastUpdatedAt?: number;
+}
+
 export interface FollowUpItem {
   id: string;
   concernId: string | null;
@@ -211,6 +242,7 @@ export interface PatientProfile {
   emergencyReason?: string;
 
   // Evidence & Provenance Tracking (V2.1.2 Data Integrity Patch)
+  concerns?: ClinicalConcern[];
   multipleConcerns?: string[];
   reportedLocations?: string[];
   askedQuestions?: string[];
@@ -220,37 +252,72 @@ export interface PatientProfile {
   unknownFindings?: string[];
 }
 
+export type TriStateValue = 'yes' | 'no' | 'unknown' | 'not_mentioned';
+
 export interface ExtractedClinicalFacts {
-  hasLesionOrUlcer?: boolean | null;
+  // Lesion presence
+  hasLesionOrUlcer?: boolean | TriStateValue | null;
   ulcerDetails?: string | null;
+  multipleConcerns?: string[] | null;
+  structuredConcerns?: ClinicalConcern[] | null;
+
+  // Locations
   primarySymptomLocation?: string | null;
+  multipleLocations?: string[] | null;
   affectedRegions?: string[] | null;
-  duration?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown' | null;
-  durationCategory?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown' | null;
+
+  // Chronicity
+  duration?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown' | 'not_mentioned' | null;
+  durationCategory?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown' | 'not_mentioned' | null;
   durationText?: string | null;
   durationOverTwoWeeks?: boolean | null;
-  pain?: boolean | null;
-  mouthPainOrBurning?: boolean | null;
+
+  // Sensation & Triggers
+  pain?: boolean | TriStateValue | null;
+  mouthPainOrBurning?: boolean | TriStateValue | null;
   symptomTrigger?: string | null;
-  colorChanges?: 'none' | 'white' | 'red' | 'mixed' | null;
-  thickeningOrLump?: boolean | null;
-  unexplainedBleeding?: boolean | null;
-  numbnessInMouth?: boolean | null;
-  reducedMouthOpening?: boolean | null;
-  difficultySwallowing?: boolean | null;
-  neckLumpOrSwelling?: boolean | null;
-  tobaccoSmokeless?: 'none' | 'gutka' | 'khaini' | 'zarda' | 'tobacco_paan' | null;
-  tobaccoSmoked?: 'none' | 'bidi' | 'cigarettes' | 'both' | null;
-  arecaOrBetelNut?: 'none' | 'supari' | 'betel_quid' | 'pan_masala' | null;
+
+  // Appearance & Texture
+  colorChanges?: 'none' | 'white' | 'red' | 'mixed' | 'unknown' | 'not_mentioned' | null;
+  thickeningOrLump?: boolean | TriStateValue | null;
+
+  // Warning signs / Red Flags
+  unexplainedBleeding?: boolean | TriStateValue | null;
+  numbnessInMouth?: boolean | TriStateValue | null;
+  reducedMouthOpening?: boolean | TriStateValue | null;
+  difficultySwallowing?: boolean | TriStateValue | null;
+  neckLumpOrSwelling?: boolean | TriStateValue | null;
+
+  // Habits: Smoking
+  smokingStatus?: TriStateValue | null;
+  tobaccoSmoked?: 'none' | 'bidi' | 'cigarettes' | 'both' | 'unknown' | 'not_mentioned' | null;
+
+  // Habits: Smokeless
+  tobaccoSmokelessStatus?: TriStateValue | null;
+  tobaccoSmokeless?: 'none' | 'gutka' | 'khaini' | 'zarda' | 'tobacco_paan' | 'unknown' | 'not_mentioned' | null;
+  arecaOrBetelNut?: 'none' | 'supari' | 'betel_quid' | 'pan_masala' | 'unknown' | 'not_mentioned' | null;
   tobaccoFrequency?: string | null;
-  alcoholIntake?: 'none' | 'rare' | 'moderate' | 'heavy' | null;
-  alcoholUse?: 'none' | 'occasional' | 'regular' | 'heavy' | 'unknown' | null;
-  chronicIrritation?: boolean | null;
-  multipleConcerns?: string[] | null;
-  multipleLocations?: string[] | null;
+
+  // Habits: Alcohol
+  alcoholStatus?: TriStateValue | null;
+  alcoholIntake?: 'none' | 'rare' | 'moderate' | 'heavy' | 'unknown' | 'not_mentioned' | null;
+  alcoholUse?: 'none' | 'occasional' | 'regular' | 'heavy' | 'unknown' | 'not_mentioned' | null;
+
+  // Irritation & Corrections
+  chronicIrritation?: boolean | TriStateValue | null;
+  isCorrection?: boolean | null;
+  correctionDetails?: string | null;
+
+  // Safety & Emergencies
   emergencyFlag?: boolean | null;
   emergencyReason?: string | null;
-  isCorrection?: boolean | null;
+}
+
+export interface GeminiChatResponse {
+  reply: string;
+  extractedFacts?: ExtractedClinicalFacts;
+  quickReplies?: string[];
+  source?: 'gemini' | 'clinical-engine' | 'emergency-fallback';
 }
 
 // Retain compatibility with legacy indicators
@@ -296,6 +363,7 @@ export interface ScreeningSession {
   currentStepName: string;
   currentClinicalStep?: ClinicalStepKey;
   profile: PatientProfile;
+  concerns?: ClinicalConcern[];
   mouthMapLocation?: string | null;
   mouthMapLocations?: MouthMapLocationItem[];
   photoDocumentation?: PhotoDocumentationItem[];

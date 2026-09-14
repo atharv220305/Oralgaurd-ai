@@ -2,6 +2,7 @@ import {
   AssessmentResult,
   ClinicProvider,
   PatientProfile,
+  ClinicalConcern,
   ExtractedClinicalFacts,
   RiskLevel,
   ScreeningConcernLevel,
@@ -11,6 +12,7 @@ import {
   ScreeningQuestionKey,
   HealthHelpline,
   EmergencyWarningSign,
+  ScreeningSession,
 } from '../types';
 
 export const DEMO_TEST_CASES: DemoTestCase[] = [
@@ -2047,6 +2049,76 @@ export function extractPatientProfileFromText(
 }
 
 /**
+ * Helper to parse tri-state values ('yes' | 'no' | 'unknown' | 'not_mentioned' | boolean)
+ */
+function parseTriStateValue(val: unknown): boolean | 'unknown' | 'not_mentioned' | undefined {
+  if (val === true || val === 'yes' || val === 'true' || val === 'positive') return true;
+  if (val === false || val === 'no' || val === 'false' || val === 'negative') return false;
+  if (val === 'unknown' || val === 'uncertain' || val === 'unsure') return 'unknown';
+  if (val === 'not_mentioned' || val === null || val === undefined) return 'not_mentioned';
+  return undefined;
+}
+
+/**
+ * Normalizes duration descriptions into standard clinical categories.
+ */
+function normalizeExtractedDuration(textOrCategory: unknown): {
+  duration?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
+  durationCategory?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
+  durationOverTwoWeeks?: boolean;
+} {
+  if (!textOrCategory) return {};
+  const str = String(textOrCategory).toLowerCase().trim();
+
+  if (str === 'unknown' || str.includes('not sure') || str.includes('dont know') || str.includes("don't know") || str.includes('uncertain')) {
+    return { duration: 'unknown', durationCategory: 'unknown', durationOverTwoWeeks: undefined };
+  }
+  if (
+    str === 'two_to_four_weeks' ||
+    str.includes('three week') ||
+    str.includes('3 week') ||
+    str.includes('two week') ||
+    str.includes('2 week') ||
+    str.includes('four week') ||
+    str.includes('4 week') ||
+    str.includes('2-4') ||
+    str.includes('2 to 4') ||
+    str.includes('do se char hafte') ||
+    str.includes('teen hafte') ||
+    str.includes('३ आठवडे') ||
+    str.includes('तीन आठवडे')
+  ) {
+    return { duration: 'two_to_four_weeks', durationCategory: 'two_to_four_weeks', durationOverTwoWeeks: true };
+  }
+  if (
+    str === 'more_than_one_month' ||
+    str.includes('month') ||
+    str.includes('mahina') ||
+    str.includes('mahine') ||
+    str.includes('saal') ||
+    str.includes('year') ||
+    str.includes('महिना') ||
+    str.includes('महीने')
+  ) {
+    return { duration: 'more_than_one_month', durationCategory: 'more_than_one_month', durationOverTwoWeeks: true };
+  }
+  if (
+    str === 'less_than_2_weeks' ||
+    str.includes('day') ||
+    str.includes('din') ||
+    str.includes('one week') ||
+    str.includes('1 week') ||
+    str.includes('few days') ||
+    str.includes('hafta') ||
+    str.includes('दिवस') ||
+    str.includes('एक आठवडा')
+  ) {
+    return { duration: 'less_than_2_weeks', durationCategory: 'less_than_2_weeks', durationOverTwoWeeks: false };
+  }
+  return {};
+}
+
+/**
  * Validates and sanitizes raw extracted data against strict clinical enums and types.
  */
 export function validateExtractedFacts(raw: unknown): ExtractedClinicalFacts {
@@ -2054,55 +2126,93 @@ export function validateExtractedFacts(raw: unknown): ExtractedClinicalFacts {
   const obj = raw as Record<string, any>;
   const facts: ExtractedClinicalFacts = {};
 
-  if (typeof obj.hasLesionOrUlcer === 'boolean') facts.hasLesionOrUlcer = obj.hasLesionOrUlcer;
+  // Lesion presence
+  const ulcerParsed = parseTriStateValue(obj.hasLesionOrUlcer);
+  if (ulcerParsed !== undefined && ulcerParsed !== 'not_mentioned') {
+    facts.hasLesionOrUlcer = ulcerParsed;
+  }
   if (typeof obj.ulcerDetails === 'string') facts.ulcerDetails = obj.ulcerDetails.trim();
   if (typeof obj.primarySymptomLocation === 'string') facts.primarySymptomLocation = obj.primarySymptomLocation.trim();
   if (Array.isArray(obj.affectedRegions)) {
     facts.affectedRegions = obj.affectedRegions.filter((r: unknown) => typeof r === 'string' && (r as string).length > 0);
   }
 
-  const validDurations = ['less_than_2_weeks', 'two_to_four_weeks', 'more_than_one_month', 'unknown'];
-  if (validDurations.includes(obj.duration)) {
-    facts.duration = obj.duration;
-  }
-  if (validDurations.includes(obj.durationCategory)) {
-    facts.durationCategory = obj.durationCategory;
+  // Duration normalization
+  const rawDur = obj.durationCategory || obj.duration || obj.durationText;
+  const normDur = normalizeExtractedDuration(rawDur);
+  if (normDur.duration) {
+    facts.duration = normDur.duration;
+    facts.durationCategory = normDur.durationCategory;
+    facts.durationOverTwoWeeks = normDur.durationOverTwoWeeks;
   }
   if (typeof obj.durationText === 'string') facts.durationText = obj.durationText.trim();
   if (typeof obj.durationOverTwoWeeks === 'boolean') facts.durationOverTwoWeeks = obj.durationOverTwoWeeks;
 
-  if (typeof obj.pain === 'boolean') facts.pain = obj.pain;
-  if (typeof obj.mouthPainOrBurning === 'boolean') facts.mouthPainOrBurning = obj.mouthPainOrBurning;
+  // Sensation & Pain
+  const painParsed = parseTriStateValue(obj.pain ?? obj.mouthPainOrBurning);
+  if (painParsed !== undefined && painParsed !== 'not_mentioned') {
+    facts.pain = painParsed;
+    facts.mouthPainOrBurning = painParsed;
+  }
   if (typeof obj.symptomTrigger === 'string') facts.symptomTrigger = obj.symptomTrigger.trim();
 
-  const validColors = ['none', 'white', 'red', 'mixed'];
+  // Color changes
+  const validColors = ['none', 'white', 'red', 'mixed', 'unknown'];
   if (validColors.includes(obj.colorChanges)) facts.colorChanges = obj.colorChanges;
 
-  if (typeof obj.thickeningOrLump === 'boolean') facts.thickeningOrLump = obj.thickeningOrLump;
-  if (typeof obj.unexplainedBleeding === 'boolean') facts.unexplainedBleeding = obj.unexplainedBleeding;
-  if (typeof obj.numbnessInMouth === 'boolean') facts.numbnessInMouth = obj.numbnessInMouth;
-  if (typeof obj.reducedMouthOpening === 'boolean') facts.reducedMouthOpening = obj.reducedMouthOpening;
-  if (typeof obj.difficultySwallowing === 'boolean') facts.difficultySwallowing = obj.difficultySwallowing;
-  if (typeof obj.neckLumpOrSwelling === 'boolean') facts.neckLumpOrSwelling = obj.neckLumpOrSwelling;
+  // Lumps & Warning signs
+  const lumpParsed = parseTriStateValue(obj.thickeningOrLump);
+  if (lumpParsed !== undefined && lumpParsed !== 'not_mentioned') facts.thickeningOrLump = lumpParsed;
 
-  const validSmokeless = ['none', 'gutka', 'khaini', 'zarda', 'tobacco_paan'];
-  if (validSmokeless.includes(obj.tobaccoSmokeless)) facts.tobaccoSmokeless = obj.tobaccoSmokeless;
+  const bleedingParsed = parseTriStateValue(obj.unexplainedBleeding);
+  if (bleedingParsed !== undefined && bleedingParsed !== 'not_mentioned') facts.unexplainedBleeding = bleedingParsed;
 
-  const validSmoked = ['none', 'bidi', 'cigarettes', 'both'];
+  const numbnessParsed = parseTriStateValue(obj.numbnessInMouth);
+  if (numbnessParsed !== undefined && numbnessParsed !== 'not_mentioned') facts.numbnessInMouth = numbnessParsed;
+
+  const openingParsed = parseTriStateValue(obj.reducedMouthOpening);
+  if (openingParsed !== undefined && openingParsed !== 'not_mentioned') facts.reducedMouthOpening = openingParsed;
+
+  const swallowingParsed = parseTriStateValue(obj.difficultySwallowing);
+  if (swallowingParsed !== undefined && swallowingParsed !== 'not_mentioned') facts.difficultySwallowing = swallowingParsed;
+
+  const neckParsed = parseTriStateValue(obj.neckLumpOrSwelling);
+  if (neckParsed !== undefined && neckParsed !== 'not_mentioned') facts.neckLumpOrSwelling = neckParsed;
+
+  // Habits: Smoking
+  const smokingStatusParsed = parseTriStateValue(obj.smokingStatus);
+  if (smokingStatusParsed !== undefined && smokingStatusParsed !== 'not_mentioned') {
+    facts.smokingStatus = smokingStatusParsed === true ? 'yes' : smokingStatusParsed === false ? 'no' : 'unknown';
+  }
+  const validSmoked = ['none', 'bidi', 'cigarettes', 'both', 'unknown'];
   if (validSmoked.includes(obj.tobaccoSmoked)) facts.tobaccoSmoked = obj.tobaccoSmoked;
 
-  const validAreca = ['none', 'supari', 'betel_quid', 'pan_masala'];
+  // Habits: Smokeless
+  const smokelessStatusParsed = parseTriStateValue(obj.tobaccoSmokelessStatus);
+  if (smokelessStatusParsed !== undefined && smokelessStatusParsed !== 'not_mentioned') {
+    facts.tobaccoSmokelessStatus = smokelessStatusParsed === true ? 'yes' : smokelessStatusParsed === false ? 'no' : 'unknown';
+  }
+  const validSmokeless = ['none', 'gutka', 'khaini', 'zarda', 'tobacco_paan', 'unknown'];
+  if (validSmokeless.includes(obj.tobaccoSmokeless)) facts.tobaccoSmokeless = obj.tobaccoSmokeless;
+
+  const validAreca = ['none', 'supari', 'betel_quid', 'pan_masala', 'unknown'];
   if (validAreca.includes(obj.arecaOrBetelNut)) facts.arecaOrBetelNut = obj.arecaOrBetelNut;
 
   if (typeof obj.tobaccoFrequency === 'string') facts.tobaccoFrequency = obj.tobaccoFrequency.trim();
 
-  const validAlcohol = ['none', 'rare', 'moderate', 'heavy'];
+  // Habits: Alcohol
+  const alcoholStatusParsed = parseTriStateValue(obj.alcoholStatus);
+  if (alcoholStatusParsed !== undefined && alcoholStatusParsed !== 'not_mentioned') {
+    facts.alcoholStatus = alcoholStatusParsed === true ? 'yes' : alcoholStatusParsed === false ? 'no' : 'unknown';
+  }
+  const validAlcohol = ['none', 'rare', 'moderate', 'heavy', 'unknown'];
   if (validAlcohol.includes(obj.alcoholIntake)) facts.alcoholIntake = obj.alcoholIntake;
 
   const validAlcoholUse = ['none', 'occasional', 'regular', 'heavy', 'unknown'];
   if (validAlcoholUse.includes(obj.alcoholUse)) facts.alcoholUse = obj.alcoholUse;
 
-  if (typeof obj.chronicIrritation === 'boolean') facts.chronicIrritation = obj.chronicIrritation;
+  const irritationParsed = parseTriStateValue(obj.chronicIrritation);
+  if (irritationParsed !== undefined && irritationParsed !== 'not_mentioned') facts.chronicIrritation = irritationParsed;
 
   if (Array.isArray(obj.multipleConcerns)) {
     facts.multipleConcerns = obj.multipleConcerns.filter((c: unknown) => typeof c === 'string' && (c as string).length > 0);
@@ -2114,19 +2224,220 @@ export function validateExtractedFacts(raw: unknown): ExtractedClinicalFacts {
   if (typeof obj.emergencyFlag === 'boolean') facts.emergencyFlag = obj.emergencyFlag;
   if (typeof obj.emergencyReason === 'string') facts.emergencyReason = obj.emergencyReason.trim();
   if (typeof obj.isCorrection === 'boolean') facts.isCorrection = obj.isCorrection;
+  if (typeof obj.correctionDetails === 'string') facts.correctionDetails = obj.correctionDetails.trim();
 
   return facts;
 }
 
 /**
+ * Builds and maintains the canonical array of ClinicalConcern objects from the patient profile and facts.
+ * Handles multi-concern tracking, location association, duration tracking, and corrections.
+ */
+export function buildClinicalConcerns(
+  currentProfile: PatientProfile,
+  facts?: ExtractedClinicalFacts,
+  rawUserText?: string
+): ClinicalConcern[] {
+  const concerns: ClinicalConcern[] = currentProfile.concerns ? [...currentProfile.concerns] : [];
+  const lower = (rawUserText || '').toLowerCase();
+  const isCorrection = Boolean(
+    facts?.isCorrection ||
+      lower.includes('actually') ||
+      lower.includes('not my tongue') ||
+      lower.includes('correction') ||
+      lower.includes('pehle galat') ||
+      lower.includes('galti se')
+  );
+
+  // 1. If structuredConcerns were explicitly provided in facts, merge them
+  if (facts?.structuredConcerns && Array.isArray(facts.structuredConcerns) && facts.structuredConcerns.length > 0) {
+    for (const sc of facts.structuredConcerns) {
+      const idx = concerns.findIndex((c) => c.id === sc.id || c.type === sc.type);
+      if (idx >= 0) {
+        concerns[idx] = { ...concerns[idx], ...sc, lastUpdatedAt: Date.now() };
+      } else {
+        concerns.push({ ...sc, detectedAt: Date.now(), lastUpdatedAt: Date.now() });
+      }
+    }
+  }
+
+  // 2. Primary Lesion / Ulcer concern
+  if (currentProfile.hasLesionOrUlcer) {
+    let lesionConcern = concerns.find((c) => c.type === 'lesion_ulcer');
+    const locations = currentProfile.primarySymptomLocation
+      ? [currentProfile.primarySymptomLocation]
+      : currentProfile.affectedRegions && currentProfile.affectedRegions.length > 0
+      ? currentProfile.affectedRegions
+      : [];
+
+    if (!lesionConcern) {
+      lesionConcern = {
+        id: 'concern-lesion-1',
+        type: 'lesion_ulcer',
+        description:
+          currentProfile.ulcerDetails ||
+          (currentProfile.primarySymptomLocation
+            ? `Oral Sore / Ulcer (${currentProfile.primarySymptomLocation})`
+            : 'Oral Sore / Ulcer'),
+        locations,
+        duration: currentProfile.duration,
+        durationCategory: currentProfile.durationCategory,
+        durationText: currentProfile.durationText,
+        durationOverTwoWeeks: currentProfile.durationOverTwoWeeks,
+        pain: currentProfile.pain,
+        symptomTrigger: currentProfile.symptomTrigger,
+        color: currentProfile.colorChanges && currentProfile.colorChanges !== 'none' ? currentProfile.colorChanges : undefined,
+        status: 'active',
+        isPrimary: true,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(lesionConcern);
+    } else {
+      if (isCorrection && locations.length > 0) {
+        lesionConcern.locations = locations;
+        lesionConcern.description =
+          currentProfile.ulcerDetails ||
+          (currentProfile.primarySymptomLocation
+            ? `Oral Sore / Ulcer (${currentProfile.primarySymptomLocation})`
+            : 'Oral Sore / Ulcer');
+      } else if (locations.length > 0) {
+        const mergedLocs = Array.from(new Set([...(lesionConcern.locations || []), ...locations]));
+        lesionConcern.locations = mergedLocs;
+        if (currentProfile.primarySymptomLocation) {
+          lesionConcern.description = `Oral Sore / Ulcer (${currentProfile.primarySymptomLocation})`;
+        }
+      }
+      if (currentProfile.duration) lesionConcern.duration = currentProfile.duration;
+      if (currentProfile.durationCategory) lesionConcern.durationCategory = currentProfile.durationCategory;
+      if (currentProfile.durationText) lesionConcern.durationText = currentProfile.durationText;
+      if (currentProfile.durationOverTwoWeeks !== undefined) lesionConcern.durationOverTwoWeeks = currentProfile.durationOverTwoWeeks;
+      if (currentProfile.pain !== undefined) lesionConcern.pain = currentProfile.pain;
+      if (currentProfile.symptomTrigger) lesionConcern.symptomTrigger = currentProfile.symptomTrigger;
+      if (currentProfile.colorChanges && currentProfile.colorChanges !== 'none') lesionConcern.color = currentProfile.colorChanges;
+      lesionConcern.lastUpdatedAt = Date.now();
+    }
+  }
+
+  // 3. Bleeding concern (e.g. bleeding gums or spontaneous oral bleeding)
+  if (currentProfile.unexplainedBleeding) {
+    let bleedingConcern = concerns.find((c) => c.type === 'bleeding');
+    const isGumBleeding = lower.includes('gum') || lower.includes('brush') || lower.includes('masoode') || lower.includes('hirad');
+    const bleedDesc = isGumBleeding ? 'Gingival Bleeding / Bleeding when Brushing' : 'Unexplained Oral Bleeding';
+    const bleedLocs = isGumBleeding ? ['Lower / Upper Gums (Gingiva)'] : [];
+
+    if (!bleedingConcern) {
+      bleedingConcern = {
+        id: 'concern-bleeding-1',
+        type: 'bleeding',
+        description: bleedDesc,
+        locations: bleedLocs,
+        symptomTrigger: isGumBleeding ? 'brushing' : undefined,
+        status: 'active',
+        isPrimary: concerns.length === 0,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(bleedingConcern);
+    } else {
+      if (isGumBleeding) {
+        bleedingConcern.description = bleedDesc;
+        bleedingConcern.locations = Array.from(new Set([...(bleedingConcern.locations || []), ...bleedLocs]));
+        bleedingConcern.symptomTrigger = 'brushing';
+      }
+      bleedingConcern.lastUpdatedAt = Date.now();
+    }
+  }
+
+  // 4. Color Change concern (e.g. leukoplakia, erythroplakia)
+  if (currentProfile.colorChanges && currentProfile.colorChanges !== 'none' && !currentProfile.hasLesionOrUlcer) {
+    let colorConcern = concerns.find((c) => c.type === 'color_change');
+    const colorDesc = currentProfile.colorChanges === 'white' ? 'Leukoplakic White Patch' : `${currentProfile.colorChanges} Mucosal Change`;
+    const locs = currentProfile.primarySymptomLocation ? [currentProfile.primarySymptomLocation] : [];
+
+    if (!colorConcern) {
+      colorConcern = {
+        id: 'concern-color-1',
+        type: 'color_change',
+        description: colorDesc,
+        locations: locs,
+        color: currentProfile.colorChanges,
+        duration: currentProfile.duration,
+        durationCategory: currentProfile.durationCategory,
+        durationText: currentProfile.durationText,
+        durationOverTwoWeeks: currentProfile.durationOverTwoWeeks,
+        status: 'active',
+        isPrimary: concerns.length === 0,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(colorConcern);
+    } else {
+      colorConcern.color = currentProfile.colorChanges;
+      if (locs.length > 0) colorConcern.locations = locs;
+      if (currentProfile.duration) colorConcern.duration = currentProfile.duration;
+      colorConcern.lastUpdatedAt = Date.now();
+    }
+  }
+
+  // 5. Trismus / Reduced Mouth Opening concern
+  if (currentProfile.reducedMouthOpening) {
+    let trismusConcern = concerns.find((c) => c.type === 'trismus');
+    if (!trismusConcern) {
+      trismusConcern = {
+        id: 'concern-trismus-1',
+        type: 'trismus',
+        description: 'Restricted Mouth Opening (Trismus / OSMF Indicator)',
+        locations: ['Buccal Mucosa Bilateral'],
+        status: 'active',
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(trismusConcern);
+    }
+  }
+
+  // 6. Palpable Lump or Thickening
+  if (currentProfile.thickeningOrLump) {
+    let lumpConcern = concerns.find((c) => c.type === 'lump_thickening');
+    if (!lumpConcern) {
+      lumpConcern = {
+        id: 'concern-lump-1',
+        type: 'lump_thickening',
+        description: 'Mucosal Thickening or Oral Lump',
+        locations: currentProfile.primarySymptomLocation ? [currentProfile.primarySymptomLocation] : [],
+        status: 'active',
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(lumpConcern);
+    }
+  }
+
+  return concerns;
+}
+
+/**
  * Merges structured extracted clinical facts into the persistent screening session profile.
+ * Follows strict clinical rules:
+ * - Deterministic validation & merging
+ * - Negation preservation
+ * - Uncertainty handling (records unknown findings without guessing)
+ * - "Not mentioned" preservation
+ * - Corrections handling (latest explicit statement wins)
+ * - Multiple concerns & multiple locations preservation
  */
 export function mergeExtractedFactsIntoProfile(
   existingProfile: PatientProfile,
   facts: ExtractedClinicalFacts,
   rawUserText?: string
 ): PatientProfile {
-  const next: PatientProfile = { ...existingProfile };
+  let next: PatientProfile = { ...existingProfile };
+
+  // First, if raw text is provided, harmonize with deterministic local parser to catch explicit patient wording
+  if (rawUserText && rawUserText.trim()) {
+    next = extractPatientProfileFromText(rawUserText, next);
+  }
 
   // Track raw user reported facts
   if (rawUserText && rawUserText.trim()) {
@@ -2137,123 +2448,255 @@ export function mergeExtractedFactsIntoProfile(
     next.userReportedFacts = userReportedFacts;
   }
 
-  // Lesion / Ulcer
-  if (facts.hasLesionOrUlcer !== null && facts.hasLesionOrUlcer !== undefined) {
-    next.hasLesionOrUlcer = facts.hasLesionOrUlcer;
+  const isCorrection = Boolean(facts.isCorrection);
+
+  // 1. Lesion / Ulcer
+  if (facts.hasLesionOrUlcer === true || facts.hasLesionOrUlcer === 'yes') {
+    next.hasLesionOrUlcer = true;
     if (facts.ulcerDetails) next.ulcerDetails = facts.ulcerDetails;
+  } else if (facts.hasLesionOrUlcer === false || facts.hasLesionOrUlcer === 'no') {
+    next.hasLesionOrUlcer = false;
+  } else if (facts.hasLesionOrUlcer === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Lesion / Ulcer Presence']));
   }
 
-  // Location & Regions
-  if (facts.affectedRegions && Array.isArray(facts.affectedRegions) && facts.affectedRegions.length > 0) {
-    const existingRegions = new Set(next.affectedRegions || []);
-    if (facts.isCorrection) existingRegions.clear();
-    facts.affectedRegions.forEach(r => existingRegions.add(r));
-    next.affectedRegions = Array.from(existingRegions);
-  }
+  // 2. Locations & Anatomical Regions
   if (facts.primarySymptomLocation) {
-    next.primarySymptomLocation = facts.primarySymptomLocation;
-  }
-
-  // Duration
-  if (facts.duration !== null && facts.duration !== undefined) {
-    next.duration = facts.duration;
-    next.durationCategory = facts.durationCategory || facts.duration;
-    if (facts.durationText) next.durationText = facts.durationText;
-    if (facts.duration === 'unknown') {
-      next.durationOverTwoWeeks = undefined;
-      next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Symptom Duration / Chronicity']));
-    } else if (facts.durationOverTwoWeeks !== null && facts.durationOverTwoWeeks !== undefined) {
-      next.durationOverTwoWeeks = facts.durationOverTwoWeeks;
+    if (isCorrection) {
+      next.primarySymptomLocation = facts.primarySymptomLocation;
+    } else if (next.primarySymptomLocation && !next.primarySymptomLocation.includes(facts.primarySymptomLocation)) {
+      next.primarySymptomLocation = `${next.primarySymptomLocation}, ${facts.primarySymptomLocation}`;
     } else {
-      next.durationOverTwoWeeks = facts.duration === 'two_to_four_weeks' || facts.duration === 'more_than_one_month';
+      next.primarySymptomLocation = facts.primarySymptomLocation;
     }
   }
 
-  // Pain / Burning
-  if (facts.pain !== null && facts.pain !== undefined) {
-    next.pain = facts.pain;
-    next.mouthPainOrBurning = facts.pain;
+  if (facts.affectedRegions && Array.isArray(facts.affectedRegions) && facts.affectedRegions.length > 0) {
+    const existingRegions = new Set(isCorrection ? [] : (next.affectedRegions || []));
+    facts.affectedRegions.forEach(r => existingRegions.add(r));
+    next.affectedRegions = Array.from(existingRegions);
   }
-  if (facts.mouthPainOrBurning !== null && facts.mouthPainOrBurning !== undefined) {
-    next.mouthPainOrBurning = facts.mouthPainOrBurning;
-    if (next.pain === undefined) next.pain = facts.mouthPainOrBurning;
+
+  if (facts.multipleLocations && Array.isArray(facts.multipleLocations) && facts.multipleLocations.length > 0) {
+    const existingLocations = new Set(isCorrection ? [] : (next.reportedLocations || []));
+    facts.multipleLocations.forEach(l => existingLocations.add(l));
+    next.reportedLocations = Array.from(existingLocations);
+
+    // Map common location names into affectedRegions if not present
+    const regions = new Set(next.affectedRegions || []);
+    facts.multipleLocations.forEach(loc => {
+      const lower = loc.toLowerCase();
+      if (lower.includes('tongue') && (lower.includes('left') || lower.includes('baya'))) regions.add('lateral_tongue_left');
+      if (lower.includes('tongue') && (lower.includes('right') || lower.includes('daya'))) regions.add('lateral_tongue_right');
+      if (lower.includes('tongue') && lower.includes('both')) {
+        regions.add('lateral_tongue_left');
+        regions.add('lateral_tongue_right');
+      }
+      if (lower.includes('cheek') || lower.includes('buccal')) regions.add('buccal_mucosa_left');
+      if (lower.includes('floor') || lower.includes('under tongue')) regions.add('floor_of_mouth');
+      if (lower.includes('gum') || lower.includes('gingiva')) regions.add('gingiva_lower');
+      if (lower.includes('palate')) regions.add('hard_soft_palate');
+      if (lower.includes('lip')) regions.add('lip_lower');
+    });
+    next.affectedRegions = Array.from(regions);
   }
+
+  // 3. Duration & Chronicity
+  if (facts.duration !== undefined && facts.duration !== null && facts.duration !== 'not_mentioned') {
+    if (facts.duration === 'unknown') {
+      next.duration = 'unknown';
+      next.durationCategory = 'unknown';
+      next.durationOverTwoWeeks = undefined;
+      next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Symptom Duration / Chronicity']));
+    } else {
+      next.duration = facts.duration;
+      if (facts.durationCategory && facts.durationCategory !== 'not_mentioned') {
+        next.durationCategory = facts.durationCategory;
+      } else {
+        next.durationCategory = facts.duration;
+      }
+      if (facts.durationText) next.durationText = facts.durationText;
+      if (facts.durationOverTwoWeeks !== undefined && facts.durationOverTwoWeeks !== null) {
+        next.durationOverTwoWeeks = facts.durationOverTwoWeeks;
+      } else {
+        next.durationOverTwoWeeks = facts.duration === 'two_to_four_weeks' || facts.duration === 'more_than_one_month';
+      }
+    }
+  }
+
+  // 4. Sensation / Pain
+  if (facts.pain === true || facts.pain === 'yes') {
+    next.pain = true;
+    next.mouthPainOrBurning = true;
+  } else if (facts.pain === false || facts.pain === 'no') {
+    next.pain = false;
+    next.mouthPainOrBurning = false;
+  } else if (facts.pain === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Pain / Burning Sensation']));
+  }
+
   if (facts.symptomTrigger) {
     next.symptomTrigger = facts.symptomTrigger;
   }
 
-  // Color changes
-  if (facts.colorChanges) {
-    next.colorChanges = facts.colorChanges;
+  // 5. Color changes
+  if (facts.colorChanges && facts.colorChanges !== 'not_mentioned') {
+    if (facts.colorChanges === 'unknown') {
+      next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Lesion Color / Appearance']));
+    } else {
+      next.colorChanges = facts.colorChanges;
+    }
+  }
+
+  // 6. Warning Signs / Red Flags
+  // Bleeding
+  if (facts.unexplainedBleeding === true || facts.unexplainedBleeding === 'yes') {
+    next.unexplainedBleeding = true;
+  } else if (facts.unexplainedBleeding === false || facts.unexplainedBleeding === 'no') {
+    next.unexplainedBleeding = false;
+  } else if (facts.unexplainedBleeding === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Unexplained Oral Bleeding']));
+  }
+
+  // Numbness
+  if (facts.numbnessInMouth === true || facts.numbnessInMouth === 'yes') {
+    next.numbnessInMouth = true;
+  } else if (facts.numbnessInMouth === false || facts.numbnessInMouth === 'no') {
+    next.numbnessInMouth = false;
+  } else if (facts.numbnessInMouth === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Oral Numbness / Paresthesia']));
+  }
+
+  // Reduced Mouth Opening (Trismus)
+  if (facts.reducedMouthOpening === true || facts.reducedMouthOpening === 'yes') {
+    next.reducedMouthOpening = true;
+  } else if (facts.reducedMouthOpening === false || facts.reducedMouthOpening === 'no') {
+    next.reducedMouthOpening = false;
+  } else if (facts.reducedMouthOpening === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Mouth Opening / Trismus']));
+  }
+
+  // Difficulty Swallowing (Dysphagia)
+  if (facts.difficultySwallowing === true || facts.difficultySwallowing === 'yes') {
+    next.difficultySwallowing = true;
+  } else if (facts.difficultySwallowing === false || facts.difficultySwallowing === 'no') {
+    next.difficultySwallowing = false;
+  } else if (facts.difficultySwallowing === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Swallowing Discomfort']));
   }
 
   // Thickening / Lump
-  if (facts.thickeningOrLump !== null && facts.thickeningOrLump !== undefined) {
-    next.thickeningOrLump = facts.thickeningOrLump;
+  if (facts.thickeningOrLump === true || facts.thickeningOrLump === 'yes') {
+    next.thickeningOrLump = true;
+  } else if (facts.thickeningOrLump === false || facts.thickeningOrLump === 'no') {
+    next.thickeningOrLump = false;
   }
 
-  // Warning signs
-  if (facts.unexplainedBleeding !== null && facts.unexplainedBleeding !== undefined) {
-    next.unexplainedBleeding = facts.unexplainedBleeding;
-  }
-  if (facts.numbnessInMouth !== null && facts.numbnessInMouth !== undefined) {
-    next.numbnessInMouth = facts.numbnessInMouth;
-  }
-  if (facts.reducedMouthOpening !== null && facts.reducedMouthOpening !== undefined) {
-    next.reducedMouthOpening = facts.reducedMouthOpening;
-  }
-  if (facts.difficultySwallowing !== null && facts.difficultySwallowing !== undefined) {
-    next.difficultySwallowing = facts.difficultySwallowing;
-  }
-  if (facts.neckLumpOrSwelling !== null && facts.neckLumpOrSwelling !== undefined) {
-    next.neckLumpOrSwelling = facts.neckLumpOrSwelling;
+  // Neck Lump / Swelling
+  if (facts.neckLumpOrSwelling === true || facts.neckLumpOrSwelling === 'yes') {
+    next.neckLumpOrSwelling = true;
+  } else if (facts.neckLumpOrSwelling === false || facts.neckLumpOrSwelling === 'no') {
+    next.neckLumpOrSwelling = false;
+  } else if (facts.neckLumpOrSwelling === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Neck Lump or Swelling']));
   }
 
-  // Habits
-  if (facts.tobaccoSmokeless !== null && facts.tobaccoSmokeless !== undefined) {
-    next.tobaccoSmokeless = facts.tobaccoSmokeless;
-  }
-  if (facts.tobaccoSmoked !== null && facts.tobaccoSmoked !== undefined) {
+  // 7. Habits: Smoking
+  if (facts.smokingStatus === 'no' || facts.tobaccoSmoked === 'none') {
+    next.tobaccoSmoked = 'none';
+  } else if (facts.smokingStatus === 'yes') {
+    if (!next.tobaccoSmoked || next.tobaccoSmoked === 'none') {
+      next.tobaccoSmoked = 'cigarettes';
+    }
+  } else if (facts.tobaccoSmoked === 'bidi' || facts.tobaccoSmoked === 'cigarettes' || facts.tobaccoSmoked === 'both') {
     next.tobaccoSmoked = facts.tobaccoSmoked;
+  } else if (facts.tobaccoSmoked === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Smoking History']));
   }
-  if (facts.arecaOrBetelNut !== null && facts.arecaOrBetelNut !== undefined) {
+
+  // Habits: Smokeless
+  if (facts.tobaccoSmokelessStatus === 'no' || facts.tobaccoSmokeless === 'none') {
+    next.tobaccoSmokeless = 'none';
+    if (facts.arecaOrBetelNut === undefined) next.arecaOrBetelNut = 'none';
+  } else if (
+    facts.tobaccoSmokeless === 'gutka' ||
+    facts.tobaccoSmokeless === 'khaini' ||
+    facts.tobaccoSmokeless === 'zarda' ||
+    facts.tobaccoSmokeless === 'tobacco_paan'
+  ) {
+    next.tobaccoSmokeless = facts.tobaccoSmokeless;
+  } else if (facts.tobaccoSmokeless === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Smokeless Tobacco History']));
+  }
+
+  if (
+    facts.arecaOrBetelNut === 'none' ||
+    facts.arecaOrBetelNut === 'supari' ||
+    facts.arecaOrBetelNut === 'betel_quid' ||
+    facts.arecaOrBetelNut === 'pan_masala'
+  ) {
     next.arecaOrBetelNut = facts.arecaOrBetelNut;
+  } else if (facts.arecaOrBetelNut === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Areca Nut History']));
   }
   if (facts.tobaccoFrequency) {
     next.tobaccoFrequency = facts.tobaccoFrequency;
   }
-  if (facts.alcoholIntake !== null && facts.alcoholIntake !== undefined) {
+
+  // Habits: Alcohol
+  if (facts.alcoholStatus === 'no' || facts.alcoholIntake === 'none') {
+    next.alcoholIntake = 'none';
+    next.alcoholUse = 'none';
+  } else if (facts.alcoholIntake === 'rare' || facts.alcoholIntake === 'moderate' || facts.alcoholIntake === 'heavy') {
     next.alcoholIntake = facts.alcoholIntake;
-    if (facts.alcoholIntake === 'none') next.alcoholUse = 'none';
-    else if (facts.alcoholIntake === 'rare' || facts.alcoholIntake === 'moderate') next.alcoholUse = 'occasional';
-    else if (facts.alcoholIntake === 'heavy') next.alcoholUse = 'heavy';
-  }
-  if (facts.alcoholUse !== null && facts.alcoholUse !== undefined) {
-    next.alcoholUse = facts.alcoholUse;
-  }
-  if (facts.chronicIrritation !== null && facts.chronicIrritation !== undefined) {
-    next.chronicIrritation = facts.chronicIrritation;
+    next.alcoholUse = facts.alcoholIntake === 'heavy' ? 'heavy' : 'occasional';
+  } else if (facts.alcoholIntake === 'unknown') {
+    next.unknownFindings = Array.from(new Set([...(next.unknownFindings || []), 'Alcohol Intake']));
   }
 
-  // Multiple concerns & locations
-  if (facts.multipleConcerns && Array.isArray(facts.multipleConcerns)) {
+  if (facts.chronicIrritation === true || facts.chronicIrritation === 'yes') {
+    next.chronicIrritation = true;
+  } else if (facts.chronicIrritation === false || facts.chronicIrritation === 'no') {
+    next.chronicIrritation = false;
+  }
+
+  // 8. Multiple Concerns Preservation & Canonical Structured Concerns
+  const updatedConcerns = buildClinicalConcerns(next, facts, rawUserText);
+  if (updatedConcerns.length > 0) {
+    next.concerns = updatedConcerns;
+    next.multipleConcerns = Array.from(new Set(updatedConcerns.map((c) => c.description)));
+  } else {
     const existingConcerns = new Set(next.multipleConcerns || []);
-    facts.multipleConcerns.forEach(c => existingConcerns.add(c));
-    next.multipleConcerns = Array.from(existingConcerns);
-  }
-  if (facts.multipleLocations && Array.isArray(facts.multipleLocations)) {
-    const existingLocations = new Set(next.reportedLocations || []);
-    facts.multipleLocations.forEach(l => existingLocations.add(l));
-    next.reportedLocations = Array.from(existingLocations);
+    if (facts.multipleConcerns && Array.isArray(facts.multipleConcerns)) {
+      facts.multipleConcerns.forEach((c) => existingConcerns.add(c));
+    }
+    if (next.hasLesionOrUlcer && next.primarySymptomLocation) {
+      existingConcerns.add(`Oral Sore / Ulcer (${next.primarySymptomLocation})`);
+    }
+    if (next.unexplainedBleeding) {
+      existingConcerns.add('Oral Bleeding / Bleeding Gums');
+    }
+    if (existingConcerns.size > 0) {
+      next.multipleConcerns = Array.from(existingConcerns);
+    }
   }
 
-  // Emergency
+  // 9. Emergency Guidance Flag
   if (facts.emergencyFlag) {
     next.emergencyFlagTriggered = true;
     if (facts.emergencyReason) next.emergencyReason = facts.emergencyReason;
   }
 
-  // Re-derive confirmed positive and negative findings
+  // Combined exposure
+  const hasTobacco = (next.tobaccoSmoked && next.tobaccoSmoked !== 'none') ||
+                     (next.tobaccoSmokeless && next.tobaccoSmokeless !== 'none') ||
+                     (next.arecaOrBetelNut && next.arecaOrBetelNut !== 'none');
+  const hasAlcohol = next.alcoholIntake && next.alcoholIntake !== 'none';
+  if (hasTobacco && hasAlcohol) {
+    next.combinedTobaccoAlcohol = true;
+  }
+
+  // 10. Re-derive confirmed positive and negative findings strictly
   const pos: string[] = [];
   const neg: string[] = [];
   if (next.hasLesionOrUlcer === true) {
@@ -2261,6 +2704,7 @@ export function mergeExtractedFactsIntoProfile(
   } else if (next.hasLesionOrUlcer === false) {
     neg.push('No active oral ulcers, sores, or indurated lesions reported');
   }
+
   if (next.unexplainedBleeding === true) pos.push('Unexplained Oral Bleeding');
   else if (next.unexplainedBleeding === false) neg.push('No unexplained oral bleeding');
 
@@ -2310,6 +2754,86 @@ export function mergeExtractedFactsIntoProfile(
   next.confirmedNegativeFindings = neg;
 
   return next;
+}
+
+/**
+ * Updates the screeningSession single-source-of-truth by merging new extracted facts,
+ * then immediately recalculating indicators and completion status.
+ */
+export function mergeExtractedFactsIntoSession(
+  existingSession: ScreeningSession,
+  facts: ExtractedClinicalFacts,
+  rawUserText?: string
+): ScreeningSession {
+  const updatedProfile = mergeExtractedFactsIntoProfile(existingSession.profile, facts, rawUserText);
+  const status = getScreeningQuestionsStatus(updatedProfile);
+
+  return {
+    ...existingSession,
+    profile: updatedProfile,
+    concerns: updatedProfile.concerns,
+    turnCount: existingSession.turnCount + 1,
+    lastUpdatedAt: Date.now(),
+    duration: updatedProfile.durationCategory || updatedProfile.duration,
+    location: updatedProfile.primarySymptomLocation || existingSession.location,
+    symptom: updatedProfile.ulcerDetails || (updatedProfile.hasLesionOrUlcer ? 'Oral sore / ulcer' : existingSession.symptom),
+    pain: updatedProfile.pain,
+    trigger: updatedProfile.symptomTrigger || existingSession.trigger,
+    emergencyTriggered: Boolean(updatedProfile.emergencyFlagTriggered || existingSession.emergencyTriggered),
+    confirmedPositiveFindings: updatedProfile.confirmedPositiveFindings,
+    confirmedNegativeFindings: updatedProfile.confirmedNegativeFindings,
+    unknownFindings: updatedProfile.unknownFindings,
+    userReportedFacts: updatedProfile.userReportedFacts,
+    isComplete: status.isReadyForEvaluation,
+    assessmentReady: status.isReadyForEvaluation,
+    currentStepName: status.currentStepName,
+    stage: status.currentStepNumber,
+  };
+}
+
+/**
+ * Deterministic local fallback extractor: converts raw patient message into ExtractedClinicalFacts.
+ * Ensures that if Gemini API is throttled or offline, the exact same structured data contract is returned.
+ */
+export function extractStructuredFactsLocally(
+  text: string,
+  existingProfile: PatientProfile,
+  lastAssistantMessage?: string
+): ExtractedClinicalFacts {
+  const updated = extractPatientProfileFromText(text, existingProfile, lastAssistantMessage);
+  const facts: ExtractedClinicalFacts = {};
+
+  if (updated.hasLesionOrUlcer !== undefined) facts.hasLesionOrUlcer = updated.hasLesionOrUlcer;
+  if (updated.ulcerDetails) facts.ulcerDetails = updated.ulcerDetails;
+  if (updated.primarySymptomLocation) facts.primarySymptomLocation = updated.primarySymptomLocation;
+  if (updated.affectedRegions && updated.affectedRegions.length > 0) facts.affectedRegions = updated.affectedRegions;
+  if (updated.duration) facts.duration = updated.duration;
+  if (updated.durationCategory) facts.durationCategory = updated.durationCategory;
+  if (updated.durationText) facts.durationText = updated.durationText;
+  if (updated.durationOverTwoWeeks !== undefined) facts.durationOverTwoWeeks = updated.durationOverTwoWeeks;
+  if (updated.pain !== undefined) facts.pain = updated.pain;
+  if (updated.mouthPainOrBurning !== undefined) facts.mouthPainOrBurning = updated.mouthPainOrBurning;
+  if (updated.symptomTrigger) facts.symptomTrigger = updated.symptomTrigger;
+  if (updated.colorChanges) facts.colorChanges = updated.colorChanges;
+  if (updated.thickeningOrLump !== undefined) facts.thickeningOrLump = updated.thickeningOrLump;
+  if (updated.unexplainedBleeding !== undefined) facts.unexplainedBleeding = updated.unexplainedBleeding;
+  if (updated.numbnessInMouth !== undefined) facts.numbnessInMouth = updated.numbnessInMouth;
+  if (updated.reducedMouthOpening !== undefined) facts.reducedMouthOpening = updated.reducedMouthOpening;
+  if (updated.difficultySwallowing !== undefined) facts.difficultySwallowing = updated.difficultySwallowing;
+  if (updated.neckLumpOrSwelling !== undefined) facts.neckLumpOrSwelling = updated.neckLumpOrSwelling;
+  if (updated.tobaccoSmokeless) facts.tobaccoSmokeless = updated.tobaccoSmokeless;
+  if (updated.tobaccoSmoked) facts.tobaccoSmoked = updated.tobaccoSmoked;
+  if (updated.arecaOrBetelNut) facts.arecaOrBetelNut = updated.arecaOrBetelNut;
+  if (updated.alcoholIntake) facts.alcoholIntake = updated.alcoholIntake;
+  if (updated.chronicIrritation !== undefined) facts.chronicIrritation = updated.chronicIrritation;
+  if (updated.concerns && updated.concerns.length > 0) facts.structuredConcerns = updated.concerns;
+  if (updated.multipleConcerns && updated.multipleConcerns.length > 0) facts.multipleConcerns = updated.multipleConcerns;
+  if (updated.emergencyFlagTriggered) {
+    facts.emergencyFlag = true;
+    facts.emergencyReason = updated.emergencyReason;
+  }
+
+  return facts;
 }
 
 /**
@@ -3034,21 +3558,26 @@ export function evaluateClinicalIndicators(profile: PatientProfile): ClinicalEva
 export function getScreeningQuestionsStatus(profile: PatientProfile): ScreeningEvaluationState {
   const isEmergency = Boolean(profile.emergencyFlagTriggered);
 
-  // 1. Symptoms: Ulcer/sore, patch, lump, or explicitly no symptoms / routine checkup
+  // 1. Symptoms: Ulcer/sore, patch, lump, bleeding, or explicitly no symptoms / routine checkup
+  const hasActiveConcerns = Boolean(profile.concerns && profile.concerns.length > 0);
   const isLesionPresent = Boolean(
     profile.hasLesionOrUlcer ||
     (profile.colorChanges && profile.colorChanges !== 'none') ||
-    profile.thickeningOrLump
+    profile.thickeningOrLump ||
+    profile.concerns?.some((c) => c.type === 'lesion_ulcer' || c.type === 'color_change' || c.type === 'lump_thickening')
   );
 
   const symptomsAnswered = Boolean(
+    hasActiveConcerns ||
     profile.hasLesionOrUlcer !== undefined ||
     (profile.colorChanges !== undefined && profile.colorChanges !== 'none') ||
     profile.thickeningOrLump !== undefined
   );
 
   let symptomsDisplay = 'Pending';
-  if (profile.hasLesionOrUlcer) {
+  if (profile.concerns && profile.concerns.length > 1) {
+    symptomsDisplay = profile.concerns.map((c) => c.description).join('; ');
+  } else if (profile.hasLesionOrUlcer) {
     symptomsDisplay = 'Mouth sore or ulcer reported';
   } else if (profile.colorChanges && profile.colorChanges !== 'none') {
     symptomsDisplay = `${profile.colorChanges} mucosal discoloration`;
@@ -3056,11 +3585,17 @@ export function getScreeningQuestionsStatus(profile: PatientProfile): ScreeningE
     symptomsDisplay = 'Palpable lump or mucosal thickening';
   } else if (profile.hasLesionOrUlcer === false) {
     symptomsDisplay = 'No mouth sores or active lesions reported';
+  } else if (hasActiveConcerns && profile.concerns) {
+    symptomsDisplay = profile.concerns[0].description;
   }
 
   // 2. Mouth Location:
   // If no lesion is present, location is automatically marked not applicable / complete
+  const lesionConcern = profile.concerns?.find((c) => c.type === 'lesion_ulcer' || c.type === 'color_change');
+  const concernHasLocation = Boolean(lesionConcern && lesionConcern.locations && lesionConcern.locations.length > 0);
+
   const locationAnswered = !isLesionPresent || Boolean(
+    concernHasLocation ||
     profile.primarySymptomLocation ||
     (profile.affectedRegions && profile.affectedRegions.length > 0)
   );
@@ -3070,13 +3605,20 @@ export function getScreeningQuestionsStatus(profile: PatientProfile): ScreeningE
     locationDisplay = 'Not applicable (no lesions reported)';
   } else if (profile.primarySymptomLocation) {
     locationDisplay = profile.primarySymptomLocation;
+  } else if (concernHasLocation && lesionConcern) {
+    locationDisplay = lesionConcern.locations.join(', ');
   } else if (profile.affectedRegions && profile.affectedRegions.length > 0) {
     locationDisplay = profile.affectedRegions.join(', ');
   }
 
   // 3. Duration:
   // If no lesion is present, duration is automatically marked not applicable / complete
+  const concernHasDuration = Boolean(
+    lesionConcern && (lesionConcern.duration || lesionConcern.durationCategory || lesionConcern.durationOverTwoWeeks !== undefined)
+  );
+
   const durationAnswered = !isLesionPresent || Boolean(
+    concernHasDuration ||
     profile.duration !== undefined ||
     profile.durationCategory !== undefined ||
     profile.durationOverTwoWeeks !== undefined
@@ -3087,10 +3629,14 @@ export function getScreeningQuestionsStatus(profile: PatientProfile): ScreeningE
     durationDisplay = 'Not applicable (no lesions reported)';
   } else if (profile.durationText) {
     durationDisplay = profile.durationText;
+  } else if (concernHasDuration && lesionConcern?.durationText) {
+    durationDisplay = lesionConcern.durationText;
   } else if (profile.duration) {
     durationDisplay = profile.duration.replace(/_/g, ' ');
   } else if (profile.durationOverTwoWeeks !== undefined) {
     durationDisplay = profile.durationOverTwoWeeks ? 'More than 2 weeks' : 'Less than 2 weeks';
+  } else if (concernHasDuration && lesionConcern?.durationOverTwoWeeks !== undefined) {
+    durationDisplay = lesionConcern.durationOverTwoWeeks ? 'More than 2 weeks' : 'Less than 2 weeks';
   }
 
   // 4. Red Flags: Warning signs (bleeding, mouth opening/trismus, numbness, dysphagia)

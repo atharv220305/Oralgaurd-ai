@@ -4,7 +4,11 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import { generateAdaptiveDialogueTurn } from './src/data/conversationalEngine';
-import { ChatMessage, PatientProfile } from './src/types';
+import {
+  validateExtractedFacts,
+  extractStructuredFactsLocally,
+} from './src/data/clinicalKnowledge';
+import { ChatMessage, PatientProfile, ExtractedClinicalFacts } from './src/types';
 
 dotenv.config();
 
@@ -34,25 +38,61 @@ function getGenAI(): GoogleGenAI | null {
 
 const SYSTEM_INSTRUCTION = `You are OralGuard AI, an empathetic, conversational oral-health screening and awareness companion focused on early oral cancer risk evaluation.
 
-CRITICAL PRODUCT MANDATES:
+CRITICAL CLINICAL & CONVERSATIONAL MANDATES:
 1. NEVER SOUND LIKE A QUESTIONNAIRE OR FORM:
-   - Speak like a caring, knowledgeable doctor or clinical guide having a natural 1-on-1 conversation.
-   - Weave together patient statements into natural conversational acknowledgments instead of reading from a script.
-   - If the patient shares multiple details in one message (e.g. sore + location + duration + habits), acknowledge ALL of them naturally in one sentence. NEVER ask for details the patient already provided.
-   - If the patient corrects something (e.g. "Actually it's on my cheek, not tongue"), smoothly acknowledge the correction without getting confused.
+   - Speak like a caring, knowledgeable doctor having a natural 1-on-1 consultation.
+   - If the patient shares multiple details in one message (e.g. sore + location + duration + habits), acknowledge ALL of them naturally in your response. NEVER ask for details the patient already provided.
+   - If the patient corrects something (e.g. "Actually it's on my cheek, not tongue" or "It's closer to 3 weeks"), smoothly acknowledge the correction without getting confused.
    - If the patient is uncertain or says "not sure / don't know", reassure them that it's okay and proceed naturally.
 2. EMPATHY & EMOTIONAL REASSURANCE:
-   - If the user expresses anxiety, fear of cancer ("Is it cancer?", "I'm terrified", "dar lag raha hai"), or severe pain, offer immediate calm reassurance before continuing: explain that noticing an unusual sore is understandably worrying, but many sores are benign or easily treatable, and getting it checked early is the best proactive step.
+   - If the user expresses anxiety, fear of cancer ("Is it cancer?", "I'm terrified", "dar lag raha hai"), or severe pain, offer immediate calm reassurance before continuing.
    - Zero shaming: Maintain complete respect and zero judgment regarding tobacco, gutka, khaini, bidi, cigarettes, or alcohol habits.
 3. CANNOT DIAGNOSE CANCER:
    - Only a qualified healthcare professional can diagnose or rule out cancer. Never say "You have cancer" or "You do not have cancer".
-4. OUTPUT FORMAT:
-   - You MUST output a strictly valid JSON object with exactly two properties:
+4. STRUCTURED CLINICAL FACT EXTRACTION:
+   - Along with your conversational reply, you MUST extract all clinical facts present in the patient's message into "extractedFacts".
+   - Follow these strict clinical extraction rules:
+     a. NEGATION: If patient denies a symptom or habit (e.g., "I don't smoke", "no bleeding", "dard nahi hai", "no sores"), set that fact to "no" or "none". NEVER ignore negations!
+     b. UNCERTAINTY: If patient is unsure (e.g., "I'm not sure how long", "don't know", "pata nahi"), set that field to "unknown". NEVER guess or assume!
+     c. NOT MENTIONED: If a topic was not addressed in the user message, set it to "not_mentioned" or omit it. Do not guess facts.
+     d. MULTIPLE CONCERNS: If user mentions multiple symptoms (e.g., "sore on tongue and bleeding gums"), extract both into "multipleConcerns", and set "hasLesionOrUlcer": "yes" and "unexplainedBleeding": "yes".
+     e. MULTIPLE LOCATIONS: If user mentions multiple oral sites (e.g., "tongue and cheek"), list all in "multipleLocations".
+     f. CORRECTIONS: If patient corrects previous information (e.g., "Actually it's been 3 weeks, not 2"), set "isCorrection": true, and set the new corrected value.
+5. OUTPUT FORMAT:
+   - You MUST output a strictly valid JSON object with the following schema:
      {
        "reply": "Your conversational, empathetic response text",
+       "extractedFacts": {
+         "hasLesionOrUlcer": "yes" | "no" | "unknown" | "not_mentioned",
+         "ulcerDetails": "description if mentioned",
+         "multipleConcerns": ["sore on tongue", "bleeding gums"],
+         "primarySymptomLocation": "anatomical location",
+         "multipleLocations": ["location 1", "location 2"],
+         "durationCategory": "less_than_2_weeks" | "two_to_four_weeks" | "more_than_one_month" | "unknown" | "not_mentioned",
+         "durationText": "e.g. 3 weeks, 10 days",
+         "pain": "yes" | "no" | "unknown" | "not_mentioned",
+         "symptomTrigger": "e.g. spicy food, chewing",
+         "colorChanges": "none" | "white" | "red" | "mixed" | "unknown" | "not_mentioned",
+         "thickeningOrLump": "yes" | "no" | "unknown" | "not_mentioned",
+         "unexplainedBleeding": "yes" | "no" | "unknown" | "not_mentioned",
+         "reducedMouthOpening": "yes" | "no" | "unknown" | "not_mentioned",
+         "numbnessInMouth": "yes" | "no" | "unknown" | "not_mentioned",
+         "difficultySwallowing": "yes" | "no" | "unknown" | "not_mentioned",
+         "neckLumpOrSwelling": "yes" | "no" | "unknown" | "not_mentioned",
+         "smokingStatus": "yes" | "no" | "unknown" | "not_mentioned",
+         "tobaccoSmoked": "none" | "bidi" | "cigarettes" | "both" | "unknown" | "not_mentioned",
+         "tobaccoSmokelessStatus": "yes" | "no" | "unknown" | "not_mentioned",
+         "tobaccoSmokeless": "none" | "gutka" | "khaini" | "zarda" | "tobacco_paan" | "unknown" | "not_mentioned",
+         "arecaOrBetelNut": "none" | "supari" | "betel_quid" | "pan_masala" | "unknown" | "not_mentioned",
+         "alcoholStatus": "yes" | "no" | "unknown" | "not_mentioned",
+         "alcoholIntake": "none" | "rare" | "moderate" | "heavy" | "unknown" | "not_mentioned",
+         "chronicIrritation": "yes" | "no" | "unknown" | "not_mentioned",
+         "isCorrection": true | false,
+         "correctionDetails": "what was corrected",
+         "emergencyFlag": true | false
+       },
        "quickReplies": ["Natural suggestion 1", "Natural suggestion 2", "Natural suggestion 3"]
-     }
-   - The quickReplies should be 3-4 natural conversational suggestions (short, friendly, conversational chips matching the language) that the patient might want to tap.`;
+     }`;
 
 /**
  * Circuit breaker state for Gemini API quota limits (429 / RESOURCE_EXHAUSTED).
@@ -345,11 +385,14 @@ STRICT CONVERSATION MEMORY RULES:
       rawMessages.length
     );
 
+    const localFacts = extractStructuredFactsLocally(lastUserMsg, patientProfile);
+
     if (ai) {
       const geminiReply = await callGeminiWithFallback(ai, formattedContents, dynamicSystemInstruction);
       if (geminiReply) {
         let parsedReply = geminiReply;
         let parsedQuickReplies: string[] | undefined = undefined;
+        let parsedFacts: ExtractedClinicalFacts = { ...localFacts };
 
         try {
           let cleanJson = geminiReply.trim();
@@ -362,6 +405,10 @@ STRICT CONVERSATION MEMORY RULES:
           }
           if (Array.isArray(obj.quickReplies) && obj.quickReplies.length > 0) {
             parsedQuickReplies = obj.quickReplies.map((q: unknown) => String(q).trim()).filter(Boolean);
+          }
+          if (obj && obj.extractedFacts && typeof obj.extractedFacts === 'object') {
+            const validatedGeminiFacts = validateExtractedFacts(obj.extractedFacts);
+            parsedFacts = { ...localFacts, ...validatedGeminiFacts };
           }
         } catch {
           parsedReply = geminiReply;
@@ -380,6 +427,7 @@ STRICT CONVERSATION MEMORY RULES:
 
         return res.json({
           reply: parsedReply,
+          extractedFacts: parsedFacts,
           quickReplies: parsedQuickReplies || turn.suggestedQuickReplies,
           source: 'gemini',
         });
@@ -389,6 +437,7 @@ STRICT CONVERSATION MEMORY RULES:
     // Seamless fallback to clinical dialogue engine (guarantees 100% uptime even during Gemini 503 spikes)
     return res.json({
       reply: turn.replyText,
+      extractedFacts: localFacts,
       quickReplies: turn.suggestedQuickReplies,
       source: 'clinical-engine',
     });
@@ -400,8 +449,13 @@ STRICT CONVERSATION MEMORY RULES:
     const fallbackReply =
       "Aapki baat samajh gaya. Kya aap bata sakte hain ki ye takleef lagbhag kitne samay se hai (2 hafton se kam, ya 2 hafton se zyada)?";
 
+    const lastUserMsg = (req.body?.messages?.[req.body?.messages?.length - 1]?.content || '') as string;
+    const fallbackProfile = (req.body?.currentProfile || {}) as PatientProfile;
+    const fallbackFacts = extractStructuredFactsLocally(lastUserMsg, fallbackProfile);
+
     return res.json({
       reply: fallbackReply,
+      extractedFacts: fallbackFacts,
       source: 'emergency-fallback',
       quickReplies: ['2 hafton se kam (< 2 weeks)', '2 se 4 hafte (2-4 weeks)', '1 mahine se zyada (> 1 month)'],
     });
