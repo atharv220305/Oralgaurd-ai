@@ -27,7 +27,9 @@ import {
   Activity,
   HeartHandshake,
   BookOpen,
+  Image as ImageIcon,
 } from 'lucide-react';
+import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ChatMessage,
@@ -46,82 +48,19 @@ import {
   INITIAL_BOT_MESSAGE_EN,
   INITIAL_BOT_MESSAGE_HI,
   DEMO_TEST_CASES,
-  extractPatientProfileFromText,
-  evaluateClinicalIndicators,
   getScreeningQuestionsStatus,
-  validateExtractedFacts,
-  mergeExtractedFactsIntoSession,
-  extractStructuredFactsLocally,
 } from '../data/clinicalKnowledge';
-import { generateAdaptiveDialogueTurn } from '../data/conversationalEngine';
+import {
+  loadPersistentScreeningSession,
+  persistScreeningSession,
+  createInitialScreeningSession,
+  processConversationalTurn,
+  applyMouthMapLocationsToSession,
+  INITIAL_BOT_MESSAGE_MR,
+} from '../services/conversationalEngine';
 import { InteractiveMouthMap } from './InteractiveMouthMap';
 import { MouthScannerScreen } from './MouthScannerScreen';
 import { SymptomProgressTracker } from './SymptomProgressTracker';
-
-export const INITIAL_BOT_MESSAGE_MR: ChatMessage = {
-  id: 'bot-initial-mr',
-  role: 'assistant',
-  content:
-    'नमस्कार! मी ओरलगार्ड एआय (OralGuard AI) चा प्राथमिक तपासणी सहाय्यक आहे.\n\nकृपया आपल्या तोंडातील कोणत्याही लक्षणाबद्दल सांगा — जसे की कोणताही फोड, अल्सर (छाला), लाल किंवा पांढरा डाग, गाठ, किंवा गिळताना त्रास. आपण केव्हापासून हा बदल अनुभवत आहात?',
-  timestamp: 'Just now',
-  quickReplies: [
-    'तोंडातील छाला / अल्सर',
-    'पांढरा किंवा लाल डाग',
-    'तोंड उघडण्यास त्रास (Trismus)',
-    'नियमित तपासणी / कोणतीही समस्या नाही',
-  ],
-};
-
-const SESSION_STORAGE_KEY = 'oralguard_persistent_screening_session_v2';
-
-function loadPersistentScreeningSession(
-  fallbackIndicators: PatientProfile,
-  fallbackLang: AppLanguage
-): ScreeningSession {
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    try {
-      const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as ScreeningSession;
-        if (parsed && parsed.sessionId && parsed.profile) {
-          return parsed;
-        }
-      }
-    } catch {
-      // Fallback
-    }
-  }
-
-  const initialBotText =
-    fallbackLang === 'en'
-      ? INITIAL_BOT_MESSAGE_EN.content
-      : fallbackLang === 'hi'
-      ? INITIAL_BOT_MESSAGE_HI.content
-      : INITIAL_BOT_MESSAGE_MR.content;
-
-  return {
-    sessionId: `session-${Date.now()}`,
-    stage: 1,
-    currentStepName: 'Symptoms',
-    profile: { ...fallbackIndicators, detectedLanguage: fallbackLang },
-    lastAssistantQuestion: initialBotText,
-    turnCount: 0,
-    evaluatedFields: [],
-    isComplete: false,
-    emergencyTriggered: Boolean(fallbackIndicators.emergencyFlagTriggered),
-    lastUpdatedAt: Date.now(),
-  };
-}
-
-function persistScreeningSession(session: ScreeningSession) {
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    try {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-    } catch {
-      // ignore
-    }
-  }
-}
 
 interface ChatScreenProps {
   onCompleteScreening: (profile: PatientProfile) => void;
@@ -211,54 +150,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // Handle oral map confirmed selection (Multi-Location Support)
-  const handleConfirmMultipleLocationsFromMap = (regions: OralRegion[]) => {
+  // Handle oral map confirmed selection (Multi-Location & Multi-Concern Support)
+  const handleConfirmMultipleLocationsFromMap = (regions: OralRegion[], targetConcernId?: string | null) => {
     if (regions.length === 0) return;
-    const isUnknown = regions.some((r) => r.id === 'unknown_location');
-    const locationItems: MouthMapLocationItem[] = isUnknown
-      ? [{ id: 'unknown_location', area: 'Not sure / Unspecified', hindiName: 'सटीक स्थान ज्ञात नहीं', marathiName: 'सटीक जागा माहित नाही', confirmed: true }]
-      : regions.map((r) => ({ id: r.id, area: r.name, hindiName: r.hindiName, marathiName: r.marathiName, confirmed: true }));
+    const { updatedSession, summaryMessage } = applyMouthMapLocationsToSession(
+      screeningSession,
+      regions,
+      targetConcernId,
+      selectedLanguage
+    );
 
-    const locationNames = isUnknown ? 'Not sure / Unspecified' : regions.map((r) => r.name).join(', ');
-    const regionIds = isUnknown ? [] : regions.map((r) => r.id);
-
-    const updated: PatientProfile = {
-      ...indicators,
-      detectedLanguage: selectedLanguage,
-      affectedRegions: regionIds,
-      primarySymptomLocation: locationNames,
-      mouthMapLocations: locationItems,
-    };
-
-    setIndicators(updated);
-
-    setScreeningSession((curr) => {
-      const nextSession: ScreeningSession = {
-        ...curr,
-        mouthMapLocation: isUnknown ? 'unknown' : regions[0].id,
-        mouthMapLocations: locationItems,
-        profile: updated,
-        lastUpdatedAt: Date.now(),
-      };
-      persistScreeningSession(nextSession);
-      return nextSession;
-    });
-
+    setIndicators(updatedSession.profile);
+    setScreeningSession(updatedSession);
+    persistScreeningSession(updatedSession);
     setShowMouthMap(false);
 
-    const messageContent = isUnknown
-      ? (selectedLanguage === 'hi'
-          ? 'मैंने मुँह के नक़्शे (Mouth Map) पर बताया कि मुझे सटीक स्थान की पहचान नहीं है।'
-          : selectedLanguage === 'mr'
-          ? 'मी माउथ मॅपवर सांगितले की मला नेमकी जागा निश्चित माहिती नाही.'
-          : 'I indicated on the oral anatomy map that I am not sure of the exact location.')
-      : (selectedLanguage === 'hi'
-          ? `मैंने मुँह के नक़्शे (Mouth Map) पर ${regions.length > 1 ? `${regions.length} स्थान` : ''} चिह्नित किए: ${regions.map((r) => `${r.name} (${r.hindiName})`).join(', ')}`
-          : selectedLanguage === 'mr'
-          ? `मी माउथ मॅपवर ${regions.length > 1 ? `${regions.length} जागा` : 'जागा'} निवडल्या: ${regions.map((r) => `${r.name} (${r.marathiName || r.hindiName})`).join(', ')}`
-          : `I confirmed ${regions.length > 1 ? `${regions.length} locations` : 'location'} on the mouth map: ${regions.map((r) => r.name).join(', ')}`);
-
-    handleSendMessage(messageContent);
+    handleSendMessage(summaryMessage);
   };
 
   const handleConfirmLocationFromMap = (region: OralRegion) => {
@@ -434,7 +341,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }, 100);
   };
 
-  // Generate intelligent response strictly relying on persistent screeningSession state
+  // Generate intelligent response strictly relying on persistent screeningSession state and conversationalEngine service
   const handleSendMessage = async (textToSend?: string) => {
     const content = (textToSend ?? inputText).trim();
     if (!content || isTyping) return;
@@ -454,226 +361,51 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setMessages(newHistory);
     setIsTyping(true);
 
-    // 1. Structured local extraction & merge into single-source-of-truth screeningSession
-    const lastAssistantMsg =
-      screeningSession.lastAssistantQuestion ||
-      [...messages].reverse().find((m) => m.role === 'assistant')?.content;
-
-    const baseProfile: PatientProfile = {
-      ...screeningSession.profile,
-      detectedLanguage: selectedLanguage,
-    };
-
-    // Extract facts locally from user message
-    const initialFacts = extractStructuredFactsLocally(content, baseProfile, lastAssistantMsg);
-    let activeSession = mergeExtractedFactsIntoSession(screeningSession, initialFacts, content);
-    activeSession.profile.detectedLanguage = selectedLanguage;
-    activeSession.lastUserResponse = content;
-    
-    setIndicators(activeSession.profile);
-    setScreeningSession(activeSession);
-    persistScreeningSession(activeSession);
-
-    const nextStep = activeSession.turnCount;
-    setExchangesCount(nextStep);
-
-    // 2. Fast track if user explicitly taps view results AND screening is ready
-    const evalState = getScreeningQuestionsStatus(activeSession.profile);
-    const isRequestingResults =
-      content.toLowerCase().includes('view my screening') ||
-      content.toLowerCase().includes('view result') ||
-      content.toLowerCase().includes('result dekhein') ||
-      content.toLowerCase().includes(' निकाल') ||
-      content.toLowerCase().includes('check result') ||
-      content.toLowerCase().includes('assessment');
-
-    if (isRequestingResults && evalState.isReadyForEvaluation) {
-      setTimeout(() => {
-        setIsTyping(false);
-        onCompleteScreening(activeSession.profile);
-      }, 500);
-      return;
-    }
-
-    // 3. Immediate local resolution for emergency red flags
-    if (activeSession.profile.emergencyFlagTriggered) {
-      const turn = generateAdaptiveDialogueTurn(content, activeSession.profile, newHistory, nextStep);
-
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `bot-${Date.now()}`,
-            role: 'assistant',
-            content: turn.replyText,
-            timestamp: 'Just now',
-            quickReplies: turn.suggestedQuickReplies,
-            isEmergencyAlert: true,
-          },
-        ]);
-
-        const finalizedSession: ScreeningSession = {
-          ...activeSession,
-          lastAssistantQuestion: turn.replyText,
-          isComplete: Boolean(turn.isReadyForEvaluation),
-          emergencyTriggered: true,
-          lastUpdatedAt: Date.now(),
-        };
-
-        setScreeningSession(finalizedSession);
-        persistScreeningSession(finalizedSession);
-        setIsTyping(false);
-      }, 350);
-
-      return;
-    }
-
-    // 4. Clinical Context & Filter preparation for Gemini
-    const { answeredIndicators, unansweredIndicators, forbiddenTopics } =
-      evaluateClinicalIndicators(activeSession.profile);
-
-    const filteredContextMessages: Array<{ role: string; content: string }> = [];
-
-    filteredContextMessages.push({
-      role: 'user',
-      content: `[CLINICAL ASSESSMENT MEMORY & CONTEXT FILTER]
-PREVIOUSLY ANSWERED CLINICAL INDICATORS (FILTERED OUT - NEVER ASK AGAIN):
-${answeredIndicators.map((i) => `• ${i.label}: ${i.valueDisplay}`).join('\n')}
-
-FORBIDDEN QUESTION TOPICS:
-${forbiddenTopics.map((t) => `• ${t}`).join('\n')}
-
-REMAINING UNANSWERED CLINICAL INDICATORS:
-${
-  unansweredIndicators.length > 0
-    ? unansweredIndicators.map((i) => `• ${i.label}`).join('\n')
-    : 'All primary screening indicators answered. Inform patient preliminary results are ready.'
-}
-
-Patient's latest message: "${content}"`,
-    });
-
-    const recentDialogueTurns = newHistory.slice(-4);
-    for (const msg of recentDialogueTurns) {
-      if (msg.role === 'assistant') {
-        const textLower = msg.content.toLowerCase();
-        const askedAnsweredTopic = forbiddenTopics.some((topic) =>
-          textLower.includes(topic.toLowerCase().slice(0, 14))
-        );
-        if (askedAnsweredTopic) {
-          filteredContextMessages.push({
-            role: 'assistant',
-            content: 'Understood and recorded your symptoms in your screening record.',
-          });
-          continue;
-        }
-      }
-      filteredContextMessages.push({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.content,
-      });
-    }
-
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: filteredContextMessages,
-          currentProfile: activeSession.profile,
-          language: selectedLanguage,
-          previouslyAnsweredIndicators: answeredIndicators.map((i) => `${i.label}: ${i.valueDisplay}`),
-          forbiddenTopics,
-          unansweredIndicators: unansweredIndicators.map((i) => i.label),
-        }),
-        signal: controller.signal,
+      const result = await processConversationalTurn({
+        patientInput: content,
+        session: screeningSession,
+        language: selectedLanguage,
+        messagesHistory: newHistory,
+        onCompleteScreening,
       });
-      clearTimeout(timeoutId);
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.reply) {
-          // 5. Merge Gemini extracted facts into single-source-of-truth screeningSession
-          if (data.extractedFacts && typeof data.extractedFacts === 'object') {
-            const validatedFacts = validateExtractedFacts(data.extractedFacts);
-            activeSession = mergeExtractedFactsIntoSession(activeSession, validatedFacts, content);
-            activeSession.profile.detectedLanguage = selectedLanguage;
-            setIndicators(activeSession.profile);
-          }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-${Date.now()}`,
+          role: 'assistant',
+          content: result.reply,
+          timestamp: 'Just now',
+          quickReplies: result.quickReplies,
+          isEmergencyAlert: result.isEmergencyAlert,
+        },
+      ]);
 
-          const statusAfterFacts = getScreeningQuestionsStatus(activeSession.profile);
-          const turn = generateAdaptiveDialogueTurn(content, activeSession.profile, newHistory, nextStep);
+      setIndicators(result.updatedSession.profile);
+      setScreeningSession(result.updatedSession);
+      persistScreeningSession(result.updatedSession);
+      setExchangesCount(result.updatedSession.turnCount);
+      setIsTyping(false);
 
-          let replyText = data.reply;
-          if (turn.isReadyForEvaluation) {
-            replyText = turn.replyText;
-          }
+      // Fast track if user explicitly taps view results AND screening is ready
+      const isRequestingResults =
+        content.toLowerCase().includes('view my screening') ||
+        content.toLowerCase().includes('view result') ||
+        content.toLowerCase().includes('result dekhein') ||
+        content.toLowerCase().includes('निकाल') ||
+        content.toLowerCase().includes('check result') ||
+        content.toLowerCase().includes('assessment');
 
-          const dynamicReplies =
-            Array.isArray(data.quickReplies) && data.quickReplies.length > 0
-              ? data.quickReplies
-              : turn.suggestedQuickReplies;
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `bot-${Date.now()}`,
-              role: 'assistant',
-              content: replyText,
-              timestamp: 'Just now',
-              quickReplies: turn.isReadyForEvaluation ? turn.suggestedQuickReplies : dynamicReplies,
-              isEmergencyAlert: activeSession.profile.emergencyFlagTriggered,
-            },
-          ]);
-
-          const finalizedSession: ScreeningSession = {
-            ...activeSession,
-            lastAssistantQuestion: replyText,
-            isComplete: Boolean(statusAfterFacts.isReadyForEvaluation || turn.isReadyForEvaluation),
-            assessmentReady: Boolean(statusAfterFacts.isReadyForEvaluation || turn.isReadyForEvaluation),
-            emergencyTriggered: Boolean(activeSession.profile.emergencyFlagTriggered),
-            lastUpdatedAt: Date.now(),
-          };
-
-          setScreeningSession(finalizedSession);
-          persistScreeningSession(finalizedSession);
-          setIsTyping(false);
-          return;
-        }
+      if (isRequestingResults && result.isReadyForEvaluation) {
+        setTimeout(() => {
+          onCompleteScreening(result.updatedSession.profile);
+        }, 450);
       }
-    } catch {
-      // Gracefully fall through to adaptive local engine
+    } catch (err) {
+      console.error('Error processing conversational turn:', err);
+      setIsTyping(false);
     }
-
-    // Local Adaptive Clinical Dialogue Turn Fallback
-    const turn = generateAdaptiveDialogueTurn(content, activeSession.profile, newHistory, nextStep);
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `bot-${Date.now()}`,
-        role: 'assistant',
-        content: turn.replyText,
-        timestamp: 'Just now',
-        quickReplies: turn.suggestedQuickReplies,
-        isEmergencyAlert: turn.isEmergencyAlert || activeSession.profile.emergencyFlagTriggered,
-      },
-    ]);
-
-    const finalizedSession: ScreeningSession = {
-      ...activeSession,
-      lastAssistantQuestion: turn.replyText,
-      isComplete: Boolean(turn.isReadyForEvaluation),
-      emergencyTriggered: Boolean(turn.isEmergencyAlert || activeSession.profile.emergencyFlagTriggered),
-      lastUpdatedAt: Date.now(),
-    };
-
-    setScreeningSession(finalizedSession);
-    persistScreeningSession(finalizedSession);
-    setIsTyping(false);
   };
 
   // Screening Progress Tracking
@@ -821,6 +553,7 @@ Patient's latest message: "${content}"`,
               confirmedLocation={indicators.primarySymptomLocation}
               confirmedRegionId={screeningSession.mouthMapLocation}
               confirmedLocations={screeningSession.mouthMapLocations || indicators.mouthMapLocations}
+              concerns={screeningSession.profile.concerns || indicators.concerns}
               onConfirmLocation={handleConfirmLocationFromMap}
               onConfirmMultipleLocations={handleConfirmMultipleLocationsFromMap}
               onClearLocation={handleClearLocationFromMap}

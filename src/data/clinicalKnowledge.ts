@@ -17,8 +17,8 @@ import {
 
 export const DEMO_TEST_CASES: DemoTestCase[] = [
   {
-    id: 'case-natural-multi-fact-tongue-sore',
-    title: 'Case 1: Multi-Fact Tongue Sore (Left Lateral Tongue, ~3 Wks, Spicy Food Pain)',
+    id: 'case-1-multi-fact-tongue-sore',
+    title: 'Case 1: Multi-Fact Tongue Sore (~3 Wks, Spicy Pain)',
     badge: 'Multi-Fact Intake',
     category: 'Non-Repetition',
     initialMessage: "I've noticed a small sore on the left side of my tongue. It's been there for about three weeks and it hurts when I eat spicy food.",
@@ -26,63 +26,135 @@ export const DEMO_TEST_CASES: DemoTestCase[] = [
     expectedConcern: 'HIGH SCREENING CONCERN',
   },
   {
-    id: 'case-a-ulcer-bidi-no-red-flags',
-    title: 'Case A: Initial Natural Description (Ulcer >2 Wks, Bidi, No Bleeding/Numbness)',
-    badge: 'Case A: Natural Multi-Info',
-    category: 'Conversational Memory',
-    initialMessage: 'I have had this mouth ulcer for 3 weeks and I smoke bidi daily. I do not have any bleeding, numbness, or neck swelling.',
-    description: 'Tests conversational memory & non-repetition: Ulcer >2 weeks, bidi daily, no bleeding, no numbness, no neck lump recorded. The AI must proceed to anatomical location without re-asking duration.',
+    id: 'case-2-multi-concern-sore-gums',
+    title: 'Case 2: Multi-Concern Sore & Gums (Sore + Gum Bleeding)',
+    badge: 'Multi-Concern',
+    category: 'Clinical Independence',
+    initialMessage: "I have a sore on the left side of my tongue, but the sore doesn't bleed. My gums bleed when I brush.",
+    description: "Multi-concern test: Preserves both independent clinical concerns (Lesion: sore without bleeding, Gums: bleeding on brushing). Never collapses into 'No unexplained bleeding' or treats gum bleeding as ulcer hemorrhage.",
+    expectedConcern: 'MODERATE SCREENING CONCERN',
+  },
+  {
+    id: 'case-3-emergency-airway-stridor',
+    title: 'Case 3: Emergency Airway Compromise (Stridor & Swelling)',
+    badge: 'Emergency Red Flag',
+    category: 'Safety Triaging',
+    initialMessage: 'I have severe throat swelling and I am struggling to breathe with noisy wheezing stridor.',
+    description: 'Emergency safety override: Immediate detection of airway compromise / stridor. Instantly triggers urgent hospital referral instructions and helpline contacts, overriding routine questionnaire flow.',
     expectedConcern: 'HIGH SCREENING CONCERN',
   },
   {
-    id: 'case-b-partial-answer-pain-bleeding',
-    title: 'Case B: Partial Answer (Pain & Bleeding Only)',
-    badge: 'Case B: State Integrity',
+    id: 'case-4-emergency-acute-trismus-fever',
+    title: 'Case 4: Emergency Lockjaw & Dysphagia (Fever & Drooling)',
+    badge: 'Emergency Infection',
+    category: 'Safety Triaging',
+    initialMessage: 'I have a high fever, can barely open my mouth (severe lockjaw), and cannot swallow my own saliva.',
+    description: 'Emergency safety override: Severe trismus + acute dysphagia + high fever. Instantly flags deep fascial neck space infection / Ludwig angina risk and delivers urgent emergency medical guidance.',
+    expectedConcern: 'HIGH SCREENING CONCERN',
+  },
+  {
+    id: 'case-5-unknown-duration',
+    title: 'Case 5: Uncertain / Unknown Duration ("I don\'t know")',
+    badge: 'State Integrity',
     category: 'Strict Unknown Handling',
+    initialMessage: "I have a sore inside my mouth, but I'm not sure how long it's been there, I don't know.",
+    description: 'Tests uncertainty preservation: "I don\'t know" preserves UNKNOWN without defaulting duration to <2 weeks or generating false protective factors.',
+    expectedConcern: 'MODERATE SCREENING CONCERN',
+  },
+  {
+    id: 'case-6-partial-answer-pain-bleeding',
+    title: 'Case 6: Partial Answer (Pain & Bleeding Only)',
+    badge: 'Selective Intake',
+    category: 'State Integrity',
     initialMessage: 'I have pain and bleeding from my sore.',
-    description: 'Tests single source of truth: Ulcer, pain, and bleeding are set to YES. All unmentioned signs (numbness, trismus, swallowing, habits) remain UNKNOWN (undefined), never converted to NO or protective factors.',
+    description: 'Tests single source of truth: Ulcer, pain, and bleeding are set to YES. All unmentioned signs (numbness, trismus, swallowing, habits) remain UNKNOWN (undefined), never converted to NO.',
     expectedConcern: 'HIGH SCREENING CONCERN',
   },
   {
-    id: 'case-c-explicit-negative-numbness',
+    id: 'case-7-explicit-negative-numbness',
     title: 'Case C: Explicit Denial (Numbness Denied Only)',
-    badge: 'Case C: Targeted Denial',
+    badge: 'Targeted Denial',
     category: 'Selective Negation',
     initialMessage: "I don't have any numbness in my mouth.",
     description: 'Tests selective negative attribution: Numbness is confirmed NO. Bleeding, mouth opening, and other warning signs remain UNKNOWN unless explicitly answered.',
     expectedConcern: 'LOW SCREENING CONCERN',
   },
   {
-    id: 'case-d-unknown-duration',
-    title: 'Case D: Patient Uncertain / Unknown ("I don\'t know")',
-    badge: 'Case D: Unknown != No',
-    category: 'Uncertainty Preservation',
-    initialMessage: "I have a sore inside my mouth, but I'm not sure how long it's been there, I don't know.",
-    description: 'Tests that "I don\'t know" preserves UNKNOWN without defaulting duration to <2 weeks or generating false protective factors.',
+    id: 'case-8-correction-location',
+    title: 'Case 8: Self-Correction Location (Tongue -> Left Cheek)',
+    badge: 'Correction Handling',
+    category: 'State Overwrite',
+    initialMessage: 'Wait, sorry, the ulcer is actually on my left cheek, not my tongue.',
+    description: 'Tests location correction: Overwrites anatomical location to Left Cheek / Buccal Mucosa while strictly maintaining all prior confirmed clinical facts.',
     expectedConcern: 'MODERATE SCREENING CONCERN',
   },
   {
-    id: 'case-e-alcohol-sometimes',
-    title: 'Case E: Occasional Alcohol Intake ("Sometimes")',
-    badge: 'Case E: Nuanced Habits',
+    id: 'case-9-correction-smoking',
+    title: 'Case 9: Self-Correction Smoking ("Stopped 2 years ago")',
+    badge: 'Habit Revision',
+    category: 'Correction Handling',
+    initialMessage: "Actually I don't smoke anymore, I stopped smoking 2 years ago.",
+    description: 'Tests habit revision: Replaces active smoker state with confirmed former smoker / zero current smoking exposure.',
+    expectedConcern: 'LOW SCREENING CONCERN',
+  },
+  {
+    id: 'case-10-alcohol-sometimes',
+    title: 'Case 10: Nuanced Habit ("Sometimes" Alcohol + White Patch)',
+    badge: 'Nuanced Habits',
     category: 'Exposure Stratification',
     initialMessage: 'I drink alcohol sometimes on weekends, and I have a white patch on my cheek.',
     description: 'Tests nuanced habit intake: "Sometimes" records moderate/occasional alcohol intake (not none), appropriately adjusting clinical findings.',
     expectedConcern: 'MODERATE SCREENING CONCERN',
   },
   {
-    id: 'case-f-correction-smoking',
-    title: 'Case F: Self-Correction (Replacing Previous Value)',
-    badge: 'Case F: State Overwrite',
-    category: 'Correction Handling',
-    initialMessage: "Actually I don't smoke anymore, I stopped smoking.",
-    description: 'Tests self-correction: The latest patient statement replaces the prior tobacco state with confirmed non-smoker.',
-    expectedConcern: 'LOW SCREENING CONCERN',
+    id: 'case-11-symptom-addition',
+    title: 'Case 11: Symptom Addition ("Chewing Gutka for 5 Yrs")',
+    badge: 'Additive Intake',
+    category: 'Conversational Memory',
+    initialMessage: "Also, I forgot to mention that I've been chewing gutka for 5 years.",
+    description: 'Tests additive information: Correctly adds smokeless tobacco (gutka) exposure without wiping out existing lesion or location data.',
+    expectedConcern: 'HIGH SCREENING CONCERN',
   },
   {
-    id: 'case-g-routine-screening',
-    title: 'Case G: Routine Screening (True Negatives Verified)',
-    badge: 'Case G: Report Alignment',
+    id: 'case-12-hindi-multi-fact',
+    title: 'Case 12: Hindi Multi-Fact (गाल में सफेद छाला, 3 हफ्ते)',
+    badge: 'Multilingual Hindi',
+    category: 'Regional Language',
+    initialMessage: 'मेरे दाहिने गाल के अंदर 3 हफ्ते से सफेद छाला है, लेकिन कोई दर्द या खून नहीं है।',
+    description: 'Tests Hindi clinical comprehension: Extracts white patch, right buccal mucosa, >2 weeks duration, pain=NO, bleeding=NO, responding naturally in Hindi.',
+    expectedConcern: 'HIGH SCREENING CONCERN',
+  },
+  {
+    id: 'case-13-marathi-trismus',
+    title: 'Case 13: Marathi Trismus (तोंड उघडायला त्रास, पांढरा डाग)',
+    badge: 'Multilingual Marathi',
+    category: 'Regional Language',
+    initialMessage: 'माझ्या डाव्या गालाच्या आत पांढरा डाग आहे आणि तोंड उघडायला त्रास होतो (Trismus).',
+    description: 'Tests Marathi clinical comprehension: Extracts white patch, left cheek, reduced mouth opening (Trismus/OSMF), responding accurately in Marathi.',
+    expectedConcern: 'HIGH SCREENING CONCERN',
+  },
+  {
+    id: 'case-14-unrelated-medical-query',
+    title: 'Case 14: Unrelated Medical Query (Fever & Knee Pain)',
+    badge: 'Clinical Boundaries',
+    category: 'Compassionate Triage',
+    initialMessage: 'I also have a mild fever and knee pain. Could that be related to my mouth sore?',
+    description: 'Tests medical scope boundaries: Acknowledges unrelated systemic symptoms with empathy, clarifies oral focus, advises medical physician review if fever persists, and stays on track.',
+    expectedConcern: 'MODERATE SCREENING CONCERN',
+  },
+  {
+    id: 'case-15-mouth-map-multi-location',
+    title: 'Case 15: Mouth Map Multi-Location (Cheek & Sublingual)',
+    badge: 'Mouth Map Sync',
+    category: 'Anatomical Precision',
+    initialMessage: 'I confirmed 2 locations on the mouth map: Left Cheek and Floor of Mouth.',
+    description: 'Tests anatomy synchronization: Accurately maps multiple distinct anatomical sites to the active clinical profile.',
+    expectedConcern: 'HIGH SCREENING CONCERN',
+  },
+  {
+    id: 'case-16-routine-screening',
+    title: 'Case 16: Routine Screening (True Negatives Verified)',
+    badge: 'Report Alignment',
     category: 'Final Report Integrity',
     initialMessage: "Routine checkup, no oral symptoms. Never used any tobacco or areca, and I don't drink alcohol.",
     description: 'Tests final report alignment: Matches screeningSession state with zero lesions, confirmed zero tobacco, and confirmed zero alcohol.',
@@ -1494,7 +1566,60 @@ export function extractPatientProfileFromText(
     next.symptomTrigger = 'hot food / beverages';
   }
 
-  // EXPLICIT BLEEDING: Checked with explicit negatives first!
+  // EXPLICIT BLEEDING: Differentiated for lesion vs gingival bleeding
+  const soreDoesNotBleed =
+    lower.includes("doesn't bleed") ||
+    lower.includes("doesnt bleed") ||
+    lower.includes("does not bleed") ||
+    lower.includes("sore doesn't bleed") ||
+    lower.includes("sore does not bleed") ||
+    lower.includes("ulcer doesn't bleed") ||
+    lower.includes("ulcer does not bleed") ||
+    lower.includes("not bleed") ||
+    lower.includes("sore me se khoon nahi") ||
+    lower.includes("chhale se khoon nahi") ||
+    lower.includes("छाले से खून नहीं") ||
+    lower.includes("फोडातून रक्त येत नाही");
+
+  const soreBleeds =
+    lower.includes("sore bleeds") ||
+    lower.includes("ulcer bleeds") ||
+    lower.includes("bleeds when touched") ||
+    lower.includes("bleeding from the sore") ||
+    lower.includes("bleeding from ulcer") ||
+    lower.includes("chhale se khoon");
+
+  const gumsBleed =
+    lower.includes("gums bleed") ||
+    lower.includes("gum bleeds") ||
+    lower.includes("bleeding from gums") ||
+    lower.includes("gum bleeding") ||
+    lower.includes("bleed when brushing") ||
+    lower.includes("bleeds when brushing") ||
+    lower.includes("brush karte waqt khoon") ||
+    lower.includes("brushing ke time khoon") ||
+    lower.includes("masudo se khoon") ||
+    lower.includes("मसूड़ों से खून") ||
+    lower.includes("हिरड्यांमधून रक्त");
+
+  const gumsDoNotBleed =
+    lower.includes("no gum bleeding") ||
+    lower.includes("gums do not bleed") ||
+    lower.includes("gums don't bleed") ||
+    lower.includes("masudo se khoon nahi");
+
+  if (soreDoesNotBleed) {
+    next.soreBleeding = false;
+  } else if (soreBleeds) {
+    next.soreBleeding = true;
+  }
+
+  if (gumsBleed) {
+    next.gumBleeding = true;
+  } else if (gumsDoNotBleed) {
+    next.gumBleeding = false;
+  }
+
   const bleedingStatus = detectTopicStatus(
     cleaned,
     text,
@@ -1515,9 +1640,15 @@ export function extractPatientProfileFromText(
       'no none of these',
     ]
   );
-  if (bleedingStatus === 'negative') {
+  if (soreBleeds) {
+    next.unexplainedBleeding = true;
+  } else if (soreDoesNotBleed) {
     next.unexplainedBleeding = false;
-  } else if (bleedingStatus === 'positive') {
+  } else if (bleedingStatus === 'negative') {
+    next.unexplainedBleeding = false;
+    if (next.soreBleeding === undefined) next.soreBleeding = false;
+    if (next.gumBleeding === undefined) next.gumBleeding = false;
+  } else if (bleedingStatus === 'positive' && !gumsBleed) {
     next.unexplainedBleeding = true;
   }
 
@@ -2313,6 +2444,10 @@ export function buildClinicalConcerns(
       if (currentProfile.durationText) lesionConcern.durationText = currentProfile.durationText;
       if (currentProfile.durationOverTwoWeeks !== undefined) lesionConcern.durationOverTwoWeeks = currentProfile.durationOverTwoWeeks;
       if (currentProfile.pain !== undefined) lesionConcern.pain = currentProfile.pain;
+      if (currentProfile.soreBleeding !== undefined) {
+        lesionConcern.soreBleeding = currentProfile.soreBleeding;
+        lesionConcern.bleeding = currentProfile.soreBleeding;
+      }
       if (currentProfile.symptomTrigger) lesionConcern.symptomTrigger = currentProfile.symptomTrigger;
       if (currentProfile.colorChanges && currentProfile.colorChanges !== 'none') lesionConcern.color = currentProfile.colorChanges;
       lesionConcern.lastUpdatedAt = Date.now();
@@ -2320,9 +2455,15 @@ export function buildClinicalConcerns(
   }
 
   // 3. Bleeding concern (e.g. bleeding gums or spontaneous oral bleeding)
-  if (currentProfile.unexplainedBleeding) {
+  if (currentProfile.gumBleeding || currentProfile.unexplainedBleeding) {
     let bleedingConcern = concerns.find((c) => c.type === 'bleeding');
-    const isGumBleeding = lower.includes('gum') || lower.includes('brush') || lower.includes('masoode') || lower.includes('hirad');
+    const isGumBleeding = Boolean(
+      currentProfile.gumBleeding ||
+      lower.includes('gum') ||
+      lower.includes('brush') ||
+      lower.includes('masoode') ||
+      lower.includes('hirad')
+    );
     const bleedDesc = isGumBleeding ? 'Gingival Bleeding / Bleeding when Brushing' : 'Unexplained Oral Bleeding';
     const bleedLocs = isGumBleeding ? ['Lower / Upper Gums (Gingiva)'] : [];
 
@@ -2332,6 +2473,8 @@ export function buildClinicalConcerns(
         type: 'bleeding',
         description: bleedDesc,
         locations: bleedLocs,
+        gumBleeding: isGumBleeding ? true : undefined,
+        bleeding: true,
         symptomTrigger: isGumBleeding ? 'brushing' : undefined,
         status: 'active',
         isPrimary: concerns.length === 0,
@@ -2344,6 +2487,7 @@ export function buildClinicalConcerns(
         bleedingConcern.description = bleedDesc;
         bleedingConcern.locations = Array.from(new Set([...(bleedingConcern.locations || []), ...bleedLocs]));
         bleedingConcern.symptomTrigger = 'brushing';
+        bleedingConcern.gumBleeding = true;
       }
       bleedingConcern.lastUpdatedAt = Date.now();
     }
@@ -2700,13 +2844,34 @@ export function mergeExtractedFactsIntoProfile(
   const pos: string[] = [];
   const neg: string[] = [];
   if (next.hasLesionOrUlcer === true) {
-    pos.push(next.durationOverTwoWeeks ? 'Persistent Oral Sore or Lesion (> 2 Weeks)' : 'Recent Oral Ulcer / Sore (< 2 Weeks)');
+    if (next.durationOverTwoWeeks === true) {
+      pos.push('Persistent Oral Sore or Lesion (> 2 Weeks)');
+    } else if (next.durationOverTwoWeeks === false) {
+      pos.push('Recent Oral Ulcer / Sore (< 2 Weeks)');
+    } else {
+      pos.push('Oral Ulcer / Sore Present (Duration unconfirmed / not assessed)');
+    }
   } else if (next.hasLesionOrUlcer === false) {
     neg.push('No active oral ulcers, sores, or indurated lesions reported');
   }
 
-  if (next.unexplainedBleeding === true) pos.push('Unexplained Oral Bleeding');
-  else if (next.unexplainedBleeding === false) neg.push('No unexplained oral bleeding');
+  if (next.soreBleeding === true) {
+    pos.push('Bleeding from Oral Sore');
+  } else if (next.soreBleeding === false) {
+    neg.push('No bleeding from oral sore');
+  }
+
+  if (next.gumBleeding === true) {
+    pos.push('Gingival Bleeding (when Brushing)');
+  } else if (next.gumBleeding === false) {
+    neg.push('No gingival bleeding');
+  }
+
+  if (next.unexplainedBleeding === true) {
+    pos.push('Unexplained Spontaneous Oral Bleeding');
+  } else if (next.unexplainedBleeding === false && !next.gumBleeding) {
+    neg.push('No unexplained oral bleeding');
+  }
 
   if (next.numbnessInMouth === true) pos.push('Oral Paresthesia / Numbness');
   else if (next.numbnessInMouth === false) neg.push('No oral paresthesia or numbness');
@@ -2930,12 +3095,28 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
     });
   }
 
-  if (profile.unexplainedBleeding) {
+  if (profile.soreBleeding === true) {
+    riskScore += 20;
+    findings.push({
+      title: 'Bleeding from Oral Sore',
+      description: 'Contact or spontaneous bleeding directly from an oral lesion or ulcer requires evaluation to assess mucosal fragility.',
+      impact: 'flag',
+    });
+  } else if (profile.unexplainedBleeding) {
     riskScore += 20;
     findings.push({
       title: 'Unexplained Oral Bleeding',
       description: 'Spontaneous or minimal-touch bleeding from soft tissues requires evaluation to exclude active mucosal erosion.',
       impact: 'flag',
+    });
+  }
+
+  if (profile.gumBleeding === true) {
+    riskScore += 8;
+    findings.push({
+      title: 'Gingival Bleeding (when Brushing)',
+      description: 'Bleeding localized to the gums during mechanical brushing commonly reflects localized gingival inflammation (gingivitis/periodontitis), distinct from ulcer hemorrhage.',
+      impact: 'moderate',
     });
   }
 

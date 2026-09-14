@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "patients": {
+      "description": "Patient screening profiles, risk indications, and oral mapping state",
+      "fields": {
+        "id": {
+          "type": "string",
+          "description": "Unique persistent identifier for the patient"
+        },
+        "profile": {
+          "type": "object",
+          "description": "Clinical indicators, habits, symptoms, and mouth map locations"
+        },
+        "latestAssessment": {
+          "type": "object",
+          "description": "Latest clinical risk assessment outcome"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      }
+    },
+    "assessment_history": {
+      "description": "Archived screening assessments for each patient over time",
+      "fields": {
+        "patientId": {
+          "type": "string",
+          "description": "Associated patient ID"
+        },
+        "assessment": {
+          "type": "object",
+          "description": "Historical assessment record"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of assessment creation"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "defaultRules": "allow read, write: if true;"
+  }
+}

@@ -34,6 +34,7 @@ import {
   PhoneCall,
   Hospital,
   MessageSquare,
+  History,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AssessmentResult, PatientProfile, AppLanguage } from '../types';
@@ -54,6 +55,7 @@ interface ResultScreenProps {
   onOpenEmergencyGuidance?: () => void;
   onOpenAskOralGuard?: () => void;
   onOpenFollowUp?: () => void;
+  onOpenHistory?: () => void;
 }
 
 export const ResultScreen: React.FC<ResultScreenProps> = ({
@@ -71,6 +73,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   onOpenEmergencyGuidance,
   onOpenAskOralGuard,
   onOpenFollowUp,
+  onOpenHistory,
 }) => {
   const [copied, setCopied] = useState(false);
   const [showQuestionsForDentist, setShowQuestionsForDentist] = useState(false);
@@ -258,6 +261,29 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
               <p className="text-[10px] text-slate-500 leading-tight">
                 {isHindi ? '2-हफ़्ते रीचेक व अपॉइंटमेंट रिमाइंडर सेट करें' : isMarathi ? '२-आठवडे रीचेक व तपासणी रिमाइंडर सेट करा' : 'Set 2-week recheck & dental visit reminders'}
               </p>
+            </button>
+          )}
+
+          {onOpenHistory && (
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              className="col-span-2 p-3 bg-slate-50 hover:bg-teal-50/60 border border-slate-200 hover:border-teal-300 rounded-xl text-left transition-all shadow-2xs group cursor-pointer flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+                  <History className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 group-hover:text-teal-700 block">
+                    {isHindi ? 'क्लाउड जाँच इतिहास (Firestore History)' : isMarathi ? 'क्लाउड तपासणी इतिहास (Firestore History)' : 'Cloud Assessment History'}
+                  </span>
+                  <p className="text-[10px] text-slate-500">
+                    {isHindi ? 'पिछली सभी जाँचें व लक्षण रिकॉर्ड देखें' : isMarathi ? 'मागील सर्व तपासण्या व नोंदी पहा' : 'View past assessments securely saved in Cloud Firestore'}
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-teal-600 transition-colors shrink-0" />
             </button>
           )}
         </div>

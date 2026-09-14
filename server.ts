@@ -36,32 +36,37 @@ function getGenAI(): GoogleGenAI | null {
   return genAIClient;
 }
 
-const SYSTEM_INSTRUCTION = `You are OralGuard AI, an empathetic, conversational oral-health screening and awareness companion focused on early oral cancer risk evaluation.
+const SYSTEM_INSTRUCTION = `You are OralGuard AI, an advanced, empathetic, generative medical AI companion and oral health specialist (built like Gemini and ChatGPT). You think on your own and provide intelligent, authentic, personalized answers to whatever question or topic the user brings up, without following rigid scripts or predefined questions.
 
-CRITICAL CLINICAL & CONVERSATIONAL MANDATES:
-1. NEVER SOUND LIKE A QUESTIONNAIRE OR FORM:
-   - Speak like a caring, knowledgeable doctor having a natural 1-on-1 consultation.
-   - If the patient shares multiple details in one message (e.g. sore + location + duration + habits), acknowledge ALL of them naturally in your response. NEVER ask for details the patient already provided.
-   - If the patient corrects something (e.g. "Actually it's on my cheek, not tongue" or "It's closer to 3 weeks"), smoothly acknowledge the correction without getting confused.
-   - If the patient is uncertain or says "not sure / don't know", reassure them that it's okay and proceed naturally.
-2. EMPATHY & EMOTIONAL REASSURANCE:
-   - If the user expresses anxiety, fear of cancer ("Is it cancer?", "I'm terrified", "dar lag raha hai"), or severe pain, offer immediate calm reassurance before continuing.
-   - Zero shaming: Maintain complete respect and zero judgment regarding tobacco, gutka, khaini, bidi, cigarettes, or alcohol habits.
-3. CANNOT DIAGNOSE CANCER:
-   - Only a qualified healthcare professional can diagnose or rule out cancer. Never say "You have cancer" or "You do not have cancer".
-4. STRUCTURED CLINICAL FACT EXTRACTION:
-   - Along with your conversational reply, you MUST extract all clinical facts present in the patient's message into "extractedFacts".
-   - Follow these strict clinical extraction rules:
-     a. NEGATION: If patient denies a symptom or habit (e.g., "I don't smoke", "no bleeding", "dard nahi hai", "no sores"), set that fact to "no" or "none". NEVER ignore negations!
-     b. UNCERTAINTY: If patient is unsure (e.g., "I'm not sure how long", "don't know", "pata nahi"), set that field to "unknown". NEVER guess or assume!
-     c. NOT MENTIONED: If a topic was not addressed in the user message, set it to "not_mentioned" or omit it. Do not guess facts.
-     d. MULTIPLE CONCERNS: If user mentions multiple symptoms (e.g., "sore on tongue and bleeding gums"), extract both into "multipleConcerns", and set "hasLesionOrUlcer": "yes" and "unexplainedBleeding": "yes".
-     e. MULTIPLE LOCATIONS: If user mentions multiple oral sites (e.g., "tongue and cheek"), list all in "multipleLocations".
-     f. CORRECTIONS: If patient corrects previous information (e.g., "Actually it's been 3 weeks, not 2"), set "isCorrection": true, and set the new corrected value.
-5. OUTPUT FORMAT:
+CORE AI INTELLIGENCE & GENERATIVE REASONING:
+1. THINK ON YOUR OWN & ANSWER THE USER'S SPECIFIC QUESTION FIRST:
+   - When the user asks ANY question (e.g. "What causes mouth ulcers?", "What is leukoplakia?", "Does gutka cause oral cancer?", "Why does my tongue burn?", "What is the 2-week rule?", "Can stress cause sores?", "How does a biopsy work?"), THINK deeply and answer directly, thoroughly, and clearly.
+   - Do NOT ignore what the user asked. NEVER force the user into a predefined multiple-choice questionnaire or rigid form.
+   - Use clear medical explanations, formatted with clean Markdown (use bullet points, bold key terms, and concise paragraphs).
+   - If the user asks a follow-up question, clarify it thoughtfully just like ChatGPT or Gemini.
+
+2. FLUID, DYNAMIC ORAL SCREENING & TRIAGE:
+   - If the user is describing their own symptoms (e.g. pain, sore, patch, difficulty opening mouth, habit history), listen carefully and respond with personalized clinical empathy.
+   - Explain what their symptom might indicate (e.g. benign aphthous ulcer vs. chronic trauma vs. mucosal lesion requiring inspection).
+   - If useful clinical details (like whether it has lasted more than 2 weeks, location, or habits) haven't been shared yet, you can naturally and conversationally ask for them as a caring doctor would — NOT like an automated survey.
+   - If the user already gave information, acknowledge it and NEVER ask for it again.
+
+3. EMPATHY & CANCER ANXIETY MANAGEMENT:
+   - Address cancer fears directly and calmly. Over 90% of acute mouth ulcers are completely benign (aphthous stomatitis, trauma from sharp teeth, accidental cheek bites, spicy food burns, viral illness, or vitamin B12/iron deficiency).
+   - Emphasize the core clinical rule of oral medicine: Any solitary ulcer, red/white patch, or lump that persists beyond 2 to 3 weeks without healing should be evaluated in person by a dentist, oral surgeon, or ENT specialist.
+   - You cannot provide a definitive biopsy-confirmed cancer diagnosis, but you provide expert educational screening and risk guidance.
+
+4. MULTILINGUAL & CULTURAL FLUENCY:
+   - Respond in the user's selected language: clear English, authentic Hindi (हिन्दी), authentic Marathi (मराठी), or natural Hinglish.
+   - Understand South Asian oral risk factors deeply: gutka, khaini, zarda, pan masala, betel quid/paan, supari (areca nut), bidi, cigarettes, and Oral Submucous Fibrosis (OSMF) with restricted mouth opening (trismus).
+
+5. VISUAL INSPECTION (MULTIMODAL):
+   - When an oral photo is provided, visually analyze the mucosal appearance, noting color (erythematous/leukoplakic), border clarity, and anatomical site, while reminding the user that clinical palpation and biopsy are required for diagnosis.
+
+6. STRUCTURED CLINICAL FACT EXTRACTION (JSON OUTPUT):
    - You MUST output a strictly valid JSON object with the following schema:
      {
-       "reply": "Your conversational, empathetic response text",
+       "reply": "Your intelligent, generative AI response answering the user's question or symptom description in clean markdown",
        "extractedFacts": {
          "hasLesionOrUlcer": "yes" | "no" | "unknown" | "not_mentioned",
          "ulcerDetails": "description if mentioned",
@@ -91,22 +96,20 @@ CRITICAL CLINICAL & CONVERSATIONAL MANDATES:
          "correctionDetails": "what was corrected",
          "emergencyFlag": true | false
        },
-       "quickReplies": ["Natural suggestion 1", "Natural suggestion 2", "Natural suggestion 3"]
+       "quickReplies": ["Natural relevant follow-up question or response 1", "Natural relevant follow-up 2", "Natural relevant follow-up 3"]
      }`;
 
 /**
  * Circuit breaker state for Gemini API quota limits (429 / RESOURCE_EXHAUSTED).
- * When active, requests bypass remote Gemini calls and immediately use the
- * built-in clinical dialogue engine to avoid latency and unnecessary errors.
  */
 let geminiQuotaCooldownUntil = 0;
 
 /**
- * Call Gemini with automatic model cascade, quota circuit breaker, and retry for high demand (503).
+ * Call Gemini with modern models: gemini-3.8-flash -> gemini-flash-latest -> gemini-3.1-flash-lite
  */
 async function callGeminiWithFallback(
   ai: GoogleGenAI,
-  contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>,
+  contents: Array<{ role: 'user' | 'model'; parts: Array<any> }>,
   systemInstruction: string
 ): Promise<string | null> {
   // If in quota cooldown period, immediately fallback to clinical dialogue engine
@@ -114,9 +117,8 @@ async function callGeminiWithFallback(
     return null;
   }
 
-  // Model cascade: If primary model experiences temporary high demand,
-  // gracefully try secondary models.
-  const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'];
+  // Modern models per @google/genai guidelines
+  const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
 
   for (const model of modelsToTry) {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -126,7 +128,7 @@ async function callGeminiWithFallback(
           contents,
           config: {
             systemInstruction,
-            temperature: 0.65,
+            temperature: 0.7,
             responseMimeType: 'application/json',
           },
         });
@@ -143,7 +145,6 @@ async function callGeminiWithFallback(
           errorMessage.includes('exceeded your current quota');
 
         if (isQuotaExceeded) {
-          // Trip circuit breaker for 60 seconds: do not retry or spam the exhausted API
           geminiQuotaCooldownUntil = Date.now() + 60_000;
           console.log('[OralGuard AI] Gemini quota reached. Activating zero-latency clinical engine fallback.');
           return null;
@@ -154,10 +155,9 @@ async function callGeminiWithFallback(
           errorMessage.includes('high demand') ||
           errorMessage.includes('UNAVAILABLE');
 
-        console.log(`[OralGuard AI] Model ${model} turn ${attempt + 1}: temporary unavailability.`);
+        console.log(`[OralGuard AI] Model ${model} turn ${attempt + 1}: ${errorMessage.slice(0, 80)}`);
 
         if (attempt === 0 && isTemporaryHighDemand) {
-          // Brief pause before single retry for transient 503
           await new Promise((resolve) => setTimeout(resolve, 350));
           continue;
         }
@@ -181,11 +181,12 @@ app.post('/api/chat', async (req, res) => {
       previouslyAnsweredIndicators,
       forbiddenTopics: clientForbiddenTopics,
       unansweredIndicators,
+      imageAttachment,
     } = req.body;
     const ai = getGenAI();
 
     // Prepare clean alternating contents for Gemini
-    const formattedContents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+    const formattedContents: Array<{ role: 'user' | 'model'; parts: Array<any> }> = [];
 
     for (const m of (messages || []) as Array<{ role: string; content: string }>) {
       if (!m.content || typeof m.content !== 'string' || !m.content.trim()) continue;
@@ -200,12 +201,25 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
+    // Attach image if provided by user in latest turn
+    if (imageAttachment && imageAttachment.data && formattedContents.length > 0) {
+      const lastItem = formattedContents[formattedContents.length - 1];
+      if (lastItem.role === 'user') {
+        lastItem.parts.push({
+          inlineData: {
+            mimeType: imageAttachment.mimeType || 'image/jpeg',
+            data: imageAttachment.data,
+          },
+        });
+      }
+    }
+
     // Ensure contents starts with a user turn
     if (formattedContents.length > 0 && formattedContents[0].role === 'model') {
       formattedContents.shift();
     }
     if (formattedContents.length === 0) {
-      formattedContents.push({ role: 'user', parts: [{ text: 'Namaste, please begin oral health screening.' }] });
+      formattedContents.push({ role: 'user', parts: [{ text: 'Hello, please introduce yourself and tell me how you can help.' }] });
     }
 
     const knownFields: string[] = [];
@@ -232,143 +246,81 @@ app.post('/api/chat', async (req, res) => {
       if (currentProfile.hasLesionOrUlcer !== undefined) {
         const desc = `Oral Sore/Ulcer: ${currentProfile.hasLesionOrUlcer ? 'Yes' : 'No'}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('whether user has a mouth sore or ulcer');
       }
       if (currentProfile.colorChanges) {
         const desc = `Color changes: ${currentProfile.colorChanges}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('color of lesion (white/red)');
       }
       if (currentProfile.primarySymptomLocation) {
         const desc = `Location: ${currentProfile.primarySymptomLocation}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('location of the sore or ulcer in the mouth');
       }
       if (currentProfile.duration || currentProfile.durationCategory || currentProfile.durationOverTwoWeeks !== undefined) {
         const desc = `Duration: ${currentProfile.durationText || currentProfile.duration || (currentProfile.durationOverTwoWeeks ? '> 2 weeks' : '< 2 weeks')}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('duration of sore/symptom (how long they had it)');
-        forbiddenTopics.push('how long has this been present');
-        forbiddenTopics.push('approximately how long has this been present');
-        forbiddenTopics.push('how long it has been there');
       }
       if (currentProfile.pain !== undefined || currentProfile.mouthPainOrBurning !== undefined) {
         const desc = `Pain / Burning: ${currentProfile.pain || currentProfile.mouthPainOrBurning ? 'Yes' : 'No'}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('whether it hurts or is painful');
       }
       if (currentProfile.unexplainedBleeding !== undefined) {
         const desc = `Bleeding: ${currentProfile.unexplainedBleeding ? 'Yes' : 'No'}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('bleeding from sore or mouth');
       }
       if (currentProfile.reducedMouthOpening !== undefined) {
         const desc = `Mouth Opening (Trismus): ${currentProfile.reducedMouthOpening ? 'Restricted' : 'Normal'}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('difficulty opening mouth');
       }
       if (currentProfile.numbnessInMouth !== undefined) {
         const desc = `Numbness: ${currentProfile.numbnessInMouth ? 'Yes' : 'No'}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('numbness in lips, tongue, or mouth');
       }
       if (currentProfile.difficultySwallowing !== undefined) {
         const desc = `Swallowing difficulty: ${currentProfile.difficultySwallowing ? 'Yes' : 'No'}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('difficulty swallowing food or liquids');
       }
       if (currentProfile.tobaccoSmokeless !== undefined || currentProfile.tobaccoSmoked !== undefined || currentProfile.arecaOrBetelNut !== undefined) {
         const desc = `Tobacco/Areca habits: Smokeless=${currentProfile.tobaccoSmokeless || 'none'}, Smoked=${currentProfile.tobaccoSmoked || 'none'}, Areca=${currentProfile.arecaOrBetelNut || 'none'}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('tobacco habits (gutka, khaini, bidi, cigarettes, supari, paan)');
       }
       if (currentProfile.alcoholIntake !== undefined || currentProfile.alcoholUse !== undefined) {
         const desc = `Alcohol intake: ${currentProfile.alcoholIntake || currentProfile.alcoholUse}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('alcohol consumption');
       }
       if (currentProfile.chronicIrritation !== undefined) {
         const desc = `Sharp tooth / denture irritation: ${currentProfile.chronicIrritation ? 'Yes' : 'No'}`;
         if (!knownFields.includes(desc)) knownFields.push(desc);
-        forbiddenTopics.push('sharp tooth or denture irritation');
       }
-    }
-
-    // Filter out previous questions from model context window turns if they touch forbidden topics
-    for (const item of formattedContents) {
-      if (item.role === 'model') {
-        const text = item.parts[0].text.toLowerCase();
-        const askedForbidden = forbiddenTopics.some((topic) =>
-          text.includes(topic.toLowerCase().slice(0, 14))
-        );
-        if (askedForbidden) {
-          item.parts[0].text = 'Understood and noted your oral symptoms in your clinical screening record.';
-        }
-      }
-    }
-
-    // Determine the single next required clinical question strictly aligned with getScreeningQuestionsStatus
-    let nextTopicDirective = '';
-    const hasLesion = Boolean(
-      currentProfile?.hasLesionOrUlcer ||
-      currentProfile?.colorChanges ||
-      currentProfile?.thickeningOrLump
-    );
-    const hasLocation = Boolean(
-      (currentProfile?.affectedRegions && currentProfile.affectedRegions.length > 0) ||
-      currentProfile?.primarySymptomLocation
-    );
-
-    const hasDuration = Boolean(
-      currentProfile?.duration ||
-      currentProfile?.durationCategory ||
-      currentProfile?.durationOverTwoWeeks !== undefined
-    );
-
-    if (hasLesion && !hasLocation) {
-      nextTopicDirective = 'Acknowledge the sore or discomfort with empathy. Then conversationally ask where in the mouth this sore or discomfort is located (e.g. inside cheek, side of tongue, gums, or floor of mouth). Mention they can also tap the interactive Mouth Map above to mark it.';
-    } else if (hasLesion && !hasDuration) {
-      nextTopicDirective = 'Acknowledge the location warmly. Ask conversationally how long it has been present (e.g. just a few days, 2-4 weeks, or more than a month). Explain gently that duration helps doctors evaluate whether a sore needs closer inspection.';
-    } else if (currentProfile?.unexplainedBleeding === undefined && currentProfile?.numbnessInMouth === undefined && currentProfile?.reducedMouthOpening === undefined) {
-      nextTopicDirective = 'Acknowledge the sore, location, and duration warmly and empathetically in a single natural sentence. Ask conversationally if they have noticed any associated warning signs, such as difficulty opening their mouth fully (trismus), bleeding from the area, or numbness in their lips, tongue, or mouth. DO NOT ask about how long the sore has been present or where it is located, because that information was already provided.';
-    } else if (currentProfile?.tobaccoSmokeless === undefined && currentProfile?.tobaccoSmoked === undefined && currentProfile?.arecaOrBetelNut === undefined) {
-      nextTopicDirective = 'Acknowledge their response about warning signs. Transition smoothly and non-judgmentally to lifestyle habits: ask whether they currently or previously use any tobacco or areca nut products (gutka, khaini, zarda, bidi, cigarettes, supari, or paan). Emphasize that our chat is completely confidential and non-judgmental.';
-    } else if (currentProfile?.alcoholIntake === undefined && currentProfile?.alcoholUse === undefined) {
-      nextTopicDirective = 'Acknowledge their tobacco status respectfully. Ask conversationally whether they also consume alcohol (occasional, regular, or never). DO NOT state results are ready yet because alcohol intake is still unanswered.';
-    } else {
-      nextTopicDirective = 'All required screening questions are answered. Warmly thank the patient for sharing their details so openly. Reassure them, and let them know that their preliminary screening evaluation and doctor summary are ready to review.';
     }
 
     const isHindi = language === 'hi';
+    const isMarathi = language === 'mr';
     const isEnglish = language === 'en';
 
     const languageDirective = isEnglish
-      ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in simple, natural English. DO NOT use any Hindi or Hinglish words. Anatomical terms like "Left Inner Cheek (Buccal Mucosa)" may remain in English where clinically appropriate.'
+      ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in simple, natural English. DO NOT use any Hindi or Hinglish words.'
       : isHindi
-      ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in clear, authentic Devanagari Hindi (हिन्दी). Anatomical terms like "Left Inner Cheek (Buccal Mucosa)" may remain in English where clinically appropriate, but the surrounding sentence MUST strictly follow Hindi. DO NOT switch or reset to English or Hinglish.'
-      : 'CRITICAL MANDATE: Respond in natural conversational Indian Hinglish in Latin script (e.g., "Samajh gaya. Ye problem aapko lagbhag kitne samay se hai?"). Anatomical terms like "Left Inner Cheek (Buccal Mucosa)" may remain in English where clinically appropriate.';
+      ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in clear, authentic Devanagari Hindi (हिन्दी). Anatomical or clinical terms may remain in English where appropriate.'
+      : isMarathi
+      ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in clear, authentic Devanagari Marathi (मराठी). Anatomical or clinical terms may remain in English where appropriate.'
+      : 'CRITICAL MANDATE: Respond in natural conversational Indian Hinglish in Latin script.';
 
     const dynamicSystemInstruction = `${SYSTEM_INSTRUCTION}
 
 ${languageDirective}
 
-CLINICAL CONTEXT FILTER (STRICTLY EXCLUDED & PREVIOUSLY ANSWERED):
-The following clinical indicators have already been fully answered by the patient and are permanently filtered out of your inquiry window:
-${knownFields.length > 0 ? knownFields.map(f => `• ${f}`).join('\n') : 'Initial turn - no indicators confirmed yet'}
+PATIENT CLINICAL DOSSIER (CONFIRMED SO FAR):
+${knownFields.length > 0 ? knownFields.map(f => `• ${f}`).join('\n') : 'Initial interaction - no clinical facts established yet.'}
 
-FORBIDDEN TOPICS (NEVER ASK ABOUT ANY OF THESE):
-${forbiddenTopics.length > 0 ? forbiddenTopics.map(t => `• ${t}`).join('\n') : 'None yet'}
+PENDING SCREENING ITEMS (ONLY INQUIRE IF USER IS ACTIVELY SEEKING A SCREENING):
+${Array.isArray(unansweredIndicators) && unansweredIndicators.length > 0 ? unansweredIndicators.join(', ') : 'None'}
 
-TARGET CLINICAL INQUIRY:
-${nextTopicDirective}
-
-STRICT CONVERSATION MEMORY RULES:
-1. NEVER REPEAT QUESTIONS: You are strictly forbidden from asking about any of the forbidden topics above.
-2. If the user answered a question, do not re-ask it even with different wording.
-3. Always acknowledge what the user just stated in a warm, natural conversational sentence.
-4. Ask ONLY ONE single question at a time focusing on the TARGET CLINICAL INQUIRY.
-5. Never diagnose cancer or say "You have cancer" or "You are cancer-free".
-6. Return JSON format with "reply" and "quickReplies" properties.`;
+CONVERSATIONAL INTELLIGENCE DIRECTIVE:
+1. THINK DEEPLY & ON YOUR OWN: You are a genuine generative AI medical companion. Give rich, accurate, and empathetic answers to whatever the patient asks.
+2. If the user asks a question (medical, physiological, habit-related, symptom-related, or general health), answer their question comprehensively first using Markdown.
+3. If the user describes their own mouth symptom, evaluate it conversationally and gently follow up with any relevant clinical question only if not already answered above.
+4. Extract all stated facts into the 'extractedFacts' JSON object.
+5. Return strictly valid JSON containing "reply", "extractedFacts", and "quickReplies".`;
 
     const rawMessages: ChatMessage[] = (messages || []).map((m: { id?: string; role?: string; content?: string }, idx: number) => ({
       id: m.id || `msg-${idx}`,
@@ -412,17 +364,6 @@ STRICT CONVERSATION MEMORY RULES:
           }
         } catch {
           parsedReply = geminiReply;
-        }
-
-        // Quality guard: never allow Gemini to re-ask duration or location if already answered
-        const asksDuration = /how long|kitne samay|kitne time|how many weeks|how many days|duration|approximately how long|कितने समय/i.test(parsedReply);
-        if (hasDuration && asksDuration) {
-          parsedReply = turn.replyText;
-        }
-
-        const asksLocation = /where in your mouth|which part of (?:your|the) mouth|muh ke kis hisse|मुँह के किस हिस्से/i.test(parsedReply);
-        if (hasLocation && asksLocation) {
-          parsedReply = turn.replyText;
         }
 
         return res.json({

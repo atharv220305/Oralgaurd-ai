@@ -31,6 +31,7 @@ export interface ChatMessage {
   timestamp: string;
   quickReplies?: string[];
   isEmergencyAlert?: boolean;
+  imageAttachmentUrl?: string;
 }
 
 export interface PhotoDocumentationItem {
@@ -87,6 +88,9 @@ export interface ClinicalConcern {
   durationText?: string;
   durationOverTwoWeeks?: boolean;
   pain?: boolean;
+  bleeding?: boolean;
+  soreBleeding?: boolean;
+  gumBleeding?: boolean;
   symptomTrigger?: string;
   color?: 'none' | 'white' | 'red' | 'mixed' | 'unknown';
   status: 'active' | 'resolved' | 'monitoring';
@@ -201,6 +205,8 @@ export interface PatientProfile {
   colorChanges?: 'none' | 'white' | 'red' | 'mixed';
   thickeningOrLump?: boolean;
   unexplainedBleeding?: boolean;
+  soreBleeding?: boolean;
+  gumBleeding?: boolean;
   mouthPainOrBurning?: boolean;
   pain?: boolean;
   symptomTrigger?: string;
@@ -283,6 +289,8 @@ export interface ExtractedClinicalFacts {
 
   // Warning signs / Red Flags
   unexplainedBleeding?: boolean | TriStateValue | null;
+  soreBleeding?: boolean | TriStateValue | null;
+  gumBleeding?: boolean | TriStateValue | null;
   numbnessInMouth?: boolean | TriStateValue | null;
   reducedMouthOpening?: boolean | TriStateValue | null;
   difficultySwallowing?: boolean | TriStateValue | null;

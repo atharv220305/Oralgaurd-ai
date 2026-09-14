@@ -17,6 +17,10 @@ import {
   AlertTriangle,
   MessageSquare,
   Calendar,
+  Cloud,
+  Check,
+  RefreshCw,
+  History,
 } from 'lucide-react';
 import { Screen } from '../types';
 
@@ -26,6 +30,8 @@ interface HeaderProps {
   onReset: () => void;
   isFrameMode: boolean;
   onToggleFrame: () => void;
+  syncStatus?: 'synced' | 'syncing' | 'offline';
+  onOpenHistory?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   onReset,
   isFrameMode,
   onToggleFrame,
+  syncStatus = 'synced',
+  onOpenHistory,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 py-2 flex items-center justify-between transition-all">
@@ -50,10 +58,32 @@ export const Header: React.FC<HeaderProps> = ({
             <ShieldCheck className="w-4 h-4 text-teal-50" />
           </div>
           <div className="truncate">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <span className="font-semibold tracking-tight text-slate-900 text-xs sm:text-sm">OralGuard AI</span>
               <span className="px-1 py-0.2 rounded text-[9px] font-semibold bg-teal-50 text-teal-700 border border-teal-200">
                 Triage
+              </span>
+              {/* Cloud Sync Status Badge */}
+              <span
+                title={
+                  syncStatus === 'syncing'
+                    ? 'Syncing with Cloud Firestore...'
+                    : syncStatus === 'offline'
+                    ? 'Working offline (cached locally)'
+                    : 'Saved securely to Cloud Firestore'
+                }
+                className="flex items-center gap-0.5 text-[9px] px-1 py-0.2 rounded bg-slate-50 text-slate-500 border border-slate-200 cursor-default"
+              >
+                {syncStatus === 'syncing' ? (
+                  <RefreshCw className="w-2.5 h-2.5 text-teal-600 animate-spin" />
+                ) : syncStatus === 'offline' ? (
+                  <Cloud className="w-2.5 h-2.5 text-amber-500" />
+                ) : (
+                  <Check className="w-2.5 h-2.5 text-emerald-600" />
+                )}
+                <span className="hidden sm:inline">
+                  {syncStatus === 'syncing' ? 'Syncing' : syncStatus === 'offline' ? 'Offline' : 'Cloud'}
+                </span>
               </span>
             </div>
             <p className="text-[10px] text-slate-500 flex items-center gap-0.5 truncate">
@@ -163,6 +193,18 @@ export const Header: React.FC<HeaderProps> = ({
         >
           {isFrameMode ? <Maximize2 className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
         </button>
+
+        {onOpenHistory && currentScreen !== 'splash' && currentScreen !== 'welcome' && (
+          <button
+            onClick={onOpenHistory}
+            title="Assessment & Screening History"
+            className="flex items-center gap-1 text-[11px] text-slate-600 hover:text-teal-700 px-1.5 py-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+            id="btn-assessment-history"
+          >
+            <History className="w-3 h-3 text-teal-600" />
+            <span className="hidden sm:inline">History</span>
+          </button>
+        )}
 
         {currentScreen !== 'splash' && currentScreen !== 'welcome' && (
           <button

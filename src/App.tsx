@@ -6,7 +6,7 @@
  * doctor handoff, helplines, emergency guidance, ask oralguard, and follow-up/reminders.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Screen,
   PatientProfile,
@@ -37,6 +37,13 @@ import { HealthHelplinesScreen } from './components/HealthHelplinesScreen';
 import { EmergencyGuidanceScreen } from './components/EmergencyGuidanceScreen';
 import { AskOralGuardScreen } from './components/AskOralGuardScreen';
 import { FollowUpScreen } from './components/FollowUpScreen';
+import { AssessmentHistoryModal } from './components/AssessmentHistoryModal';
+import {
+  loadPatientFromFirestore,
+  syncPatientToFirestore,
+  resetLocalPatientSession,
+  getOrCreatePatientId,
+} from './services/firestorePersistence';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
@@ -44,8 +51,64 @@ export default function App() {
   const [indicators, setIndicators] = useState<PatientProfile>({});
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResult | null>(null);
   const [shareSummaryConsent, setShareSummaryConsent] = useState<boolean>(true);
-
   const [selectedLanguage, setSelectedLanguage] = useState<AppLanguage>('en');
+
+  // Firestore Sync & History state
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('synced');
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
+  const isInitialLoadDone = useRef(false);
+
+  // Restore Patient Profile and Assessment from Cloud Firestore on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function restorePatientState() {
+      try {
+        setSyncStatus('syncing');
+        const patientId = getOrCreatePatientId();
+        const restored = await loadPatientFromFirestore(patientId);
+        if (!isMounted) return;
+
+        if (restored) {
+          if (restored.profile && Object.keys(restored.profile).length > 0) {
+            setIndicators(restored.profile);
+            if (restored.profile.detectedLanguage) {
+              setSelectedLanguage(restored.profile.detectedLanguage);
+            }
+          }
+          if (restored.latestAssessment) {
+            setAssessmentResult(restored.latestAssessment);
+          }
+        }
+        setSyncStatus('synced');
+      } catch (err) {
+        console.warn('Could not restore from Firestore, falling back to local state:', err);
+        if (isMounted) setSyncStatus('offline');
+      } finally {
+        if (isMounted) isInitialLoadDone.current = true;
+      }
+    }
+    restorePatientState();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Synchronize state changes to Cloud Firestore
+  useEffect(() => {
+    if (!isInitialLoadDone.current) return;
+    // Don't sync if completely empty state
+    if (Object.keys(indicators).length === 0 && !assessmentResult) return;
+
+    setSyncStatus('syncing');
+    const timer = setTimeout(() => {
+      const patientId = getOrCreatePatientId();
+      syncPatientToFirestore(patientId, indicators, assessmentResult)
+        .then(() => setSyncStatus('synced'))
+        .catch(() => setSyncStatus('offline'));
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [indicators, assessmentResult]);
 
   // Transition handlers
   const handleSplashContinue = () => {
@@ -82,27 +145,21 @@ export default function App() {
   };
 
   const handleReset = () => {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      sessionStorage.removeItem('oralguard_persistent_screening_session_v2');
-    }
+    resetLocalPatientSession();
     setIndicators({});
     setAssessmentResult(null);
     setCurrentScreen('welcome');
   };
 
   const handleRetakeScreening = () => {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      sessionStorage.removeItem('oralguard_persistent_screening_session_v2');
-    }
+    resetLocalPatientSession();
     setIndicators({ detectedLanguage: selectedLanguage });
     setAssessmentResult(null);
     setCurrentScreen('chat');
   };
 
   const handleBackToHome = () => {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      sessionStorage.removeItem('oralguard_persistent_screening_session_v2');
-    }
+    resetLocalPatientSession();
     setIndicators({});
     setAssessmentResult(null);
     setCurrentScreen('welcome');
@@ -213,6 +270,8 @@ export default function App() {
         onReset={handleReset}
         isFrameMode={isFrameMode}
         onToggleFrame={() => setIsFrameMode(!isFrameMode)}
+        syncStatus={syncStatus}
+        onOpenHistory={() => setIsHistoryModalOpen(true)}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
@@ -256,6 +315,7 @@ export default function App() {
             onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
             onOpenAskOralGuard={() => setCurrentScreen('ask_oralguard')}
             onOpenFollowUp={() => setCurrentScreen('follow_up')}
+            onOpenHistory={() => setIsHistoryModalOpen(true)}
           />
         )}
 
@@ -392,6 +452,19 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Cross-Session Firestore Assessment History Modal */}
+      <AssessmentHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        language={selectedLanguage}
+        currentProfile={indicators}
+        currentAssessment={assessmentResult}
+        onSelectPastAssessment={(selected) => {
+          setAssessmentResult(selected);
+          setCurrentScreen('result');
+        }}
+      />
     </MobileContainer>
   );
 }

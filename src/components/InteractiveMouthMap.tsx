@@ -11,14 +11,17 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ORAL_REGIONS } from '../data/oralAnatomy';
-import { OralRegion, MouthMapLocationItem } from '../types';
+import { OralRegion, MouthMapLocationItem, ClinicalConcern } from '../types';
 
 export interface InteractiveMouthMapProps {
   confirmedLocation?: string | null;
   confirmedRegionId?: string | null;
   confirmedLocations?: MouthMapLocationItem[];
+  concerns?: ClinicalConcern[];
+  activeConcernId?: string | null;
+  onSelectConcern?: (concernId: string) => void;
   onConfirmLocation?: (region: OralRegion) => void;
-  onConfirmMultipleLocations?: (regions: OralRegion[]) => void;
+  onConfirmMultipleLocations?: (regions: OralRegion[], targetConcernId?: string | null) => void;
   onClearLocation?: () => void;
   onCancel: () => void;
   onClose?: () => void;
@@ -47,6 +50,9 @@ const REGION_ORDER: string[] = [
 export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
   confirmedRegionId,
   confirmedLocations = [],
+  concerns = [],
+  activeConcernId,
+  onSelectConcern,
   onConfirmLocation,
   onConfirmMultipleLocations,
   onClearLocation,
@@ -55,6 +61,10 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
   language = 'en',
   isCompact = false,
 }) => {
+  const [selectedConcernId, setSelectedConcernId] = useState<string | null>(
+    activeConcernId || (concerns.length > 0 ? concerns[0].id : null)
+  );
+
   // Requirement: No random/default selection.
   // Initialize draft with previously confirmed locations if any, otherwise empty array.
   const initialSelectedIds = React.useMemo(() => {
@@ -81,6 +91,28 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
     .filter((reg): reg is OralRegion => Boolean(reg));
 
   const isSelected = (regionId: string) => draftRegionIds.includes(regionId);
+
+  // Switch active clinical concern (for multi-concern screening)
+  const handleSwitchConcern = (concernId: string) => {
+    setSelectedConcernId(concernId);
+    if (onSelectConcern) onSelectConcern(concernId);
+    const concern = concerns.find((c) => c.id === concernId);
+    if (concern && concern.locations && concern.locations.length > 0) {
+      const regionIds = concern.locations
+        .map((locName) => {
+          const found = Object.values(ORAL_REGIONS).find(
+            (r) => r.name.toLowerCase() === locName.toLowerCase() || locName.toLowerCase().includes(r.name.toLowerCase())
+          );
+          return found ? found.id : null;
+        })
+        .filter((id): id is string => Boolean(id));
+      if (regionIds.length > 0) {
+        setDraftRegionIds(regionIds);
+        setLiveAnnouncement(`Viewing locations for ${concern.description}`);
+        return;
+      }
+    }
+  };
 
   // Toggle or add region
   const handleToggleRegion = (regionId: string) => {
@@ -132,7 +164,7 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
     if (draftRegionIds.length === 0) return;
 
     if (onConfirmMultipleLocations) {
-      onConfirmMultipleLocations(selectedRegions);
+      onConfirmMultipleLocations(selectedRegions, selectedConcernId);
     } else if (onConfirmLocation && selectedRegions.length > 0) {
       onConfirmLocation(selectedRegions[0]);
     }
@@ -293,6 +325,34 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Multi-Concern Selection Bar */}
+      {concerns && concerns.length > 1 && (
+        <div className="px-4 py-2 bg-slate-800 border-b border-slate-700 flex items-center gap-2 overflow-x-auto">
+          <span className="text-[11px] text-slate-300 font-medium shrink-0">
+            {isHindi ? 'स्थान संबद्ध करें:' : 'Associate location with:'}
+          </span>
+          <div className="flex items-center gap-1.5 flex-nowrap">
+            {concerns.map((c) => {
+              const isSelectedConcern = (selectedConcernId || concerns[0].id) === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => handleSwitchConcern(c.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    isSelectedConcern
+                      ? 'bg-teal-500 text-slate-950 font-bold shadow-xs'
+                      : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                  }`}
+                >
+                  {c.description || c.type}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Screen Reader Live Region */}
       <div role="status" aria-live="polite" className="sr-only">
