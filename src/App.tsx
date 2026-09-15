@@ -44,6 +44,7 @@ import {
   resetLocalPatientSession,
   getOrCreatePatientId,
 } from './services/firestorePersistence';
+import { validateAppConfiguration } from './config/env';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
@@ -60,6 +61,9 @@ export default function App() {
 
   // Restore Patient Profile and Assessment from Cloud Firestore on mount
   useEffect(() => {
+    // Validate configuration on initialization
+    validateAppConfiguration();
+
     let isMounted = true;
     async function restorePatientState() {
       try {

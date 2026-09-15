@@ -28,10 +28,10 @@ import {
 } from 'lucide-react';
 import { PatientProfile, AppLanguage, ChatMessage } from '../types';
 import {
-  generateAskOralGuardReply,
   SUGGESTED_TOPICS,
   getStarterQuestions,
 } from '../data/askOralGuardEngine';
+import { fetchGeminiResponse, RoleContentMessage } from '../services/geminiService';
 import { getUIText } from '../data/translations';
 
 interface AskOralGuardScreenProps {
@@ -68,6 +68,15 @@ export const AskOralGuardScreen: React.FC<AskOralGuardScreenProps> = ({
     return 'Hello! I am **Ask OralGuard** — your AI oral health and dental awareness assistant. Ask me anything about mouth sores, white/red patches, tobacco cessation, or what to expect during a dental checkup.';
   };
 
+  // Local component state for message history: array of role-content objects
+  const [messageHistory, setMessageHistory] = useState<RoleContentMessage[]>([
+    {
+      role: 'assistant',
+      content: getInitialGreeting(currentLang),
+    },
+  ]);
+
+  // UI state for rendered chat bubbles with timestamps and quick-action suggestions
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'ask-welcome',
@@ -94,7 +103,16 @@ export const AskOralGuardScreen: React.FC<AskOralGuardScreenProps> = ({
   // Handle language switch
   const handleLanguageChange = (newLang: AppLanguage) => {
     setIndicators((prev) => ({ ...prev, detectedLanguage: newLang }));
-    // Update starter message
+    
+    // Update local role-content message history state
+    setMessageHistory([
+      {
+        role: 'assistant',
+        content: getInitialGreeting(newLang),
+      },
+    ]);
+
+    // Update UI messages log
     setMessages((prev) => [
       ...prev,
       {
@@ -118,24 +136,47 @@ export const AskOralGuardScreen: React.FC<AskOralGuardScreenProps> = ({
     ]);
   };
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
-    if (!text) return;
+    if (!text || isTyping) return;
 
-    const userMsg: ChatMessage = {
+    // 1. Append user message to local role-content history
+    const userRoleItem: RoleContentMessage = {
+      role: 'user',
+      content: text,
+    };
+    const updatedHistory: RoleContentMessage[] = [...messageHistory, userRoleItem];
+    setMessageHistory(updatedHistory);
+
+    // 2. Append to UI display messages
+    const userUIMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
       content: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userUIMsg]);
     setInputText('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = generateAskOralGuardReply(text, indicators, currentLang);
-      const botMsg: ChatMessage = {
+    try {
+      // 3. Request AI response from geminiService passing full conversation history
+      const response = await fetchGeminiResponse(
+        text,
+        updatedHistory,
+        indicators,
+        currentLang
+      );
+
+      // 4. Append assistant reply to local role-content history
+      const assistantRoleItem: RoleContentMessage = {
+        role: 'assistant',
+        content: response.reply,
+      };
+      setMessageHistory((prev) => [...prev, assistantRoleItem]);
+
+      // 5. Append assistant reply to UI display messages
+      const botUIMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: response.reply,
@@ -143,13 +184,42 @@ export const AskOralGuardScreen: React.FC<AskOralGuardScreenProps> = ({
         quickReplies: response.suggestedQuestions,
         isEmergencyAlert: response.isEmergencyAlert,
       };
+      setMessages((prev) => [...prev, botUIMsg]);
+    } catch (err) {
+      console.error('Error in Ask OralGuard message exchange:', err);
+      const fallbackErrorText =
+        currentLang === 'hi'
+          ? 'क्षमा करें, संदेश संसाधित करने में समस्या आई। कृपया पुनः प्रयास करें।'
+          : currentLang === 'mr'
+          ? 'माफ करा, संदेश पाठवताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.'
+          : 'I apologize, an issue occurred while processing your question. Please try again.';
 
-      setMessages((prev) => [...prev, botMsg]);
+      setMessageHistory((prev) => [
+        ...prev,
+        { role: 'assistant', content: fallbackErrorText },
+      ]);
+
+      const errorMsg: ChatMessage = {
+        id: `assistant-err-${Date.now()}`,
+        role: 'assistant',
+        content: fallbackErrorText,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        quickReplies: getStarterQuestions(currentLang),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
       setIsTyping(false);
-    }, 450);
+    }
   };
 
   const handleClearChat = () => {
+    setMessageHistory([
+      {
+        role: 'assistant',
+        content: getInitialGreeting(currentLang),
+      },
+    ]);
+
     setMessages([
       {
         id: `ask-welcome-reset-${Date.now()}`,

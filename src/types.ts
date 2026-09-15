@@ -246,6 +246,7 @@ export interface PatientProfile {
   previousDentalEvaluation?: string;
   emergencyFlagTriggered?: boolean;
   emergencyReason?: string;
+  emergencyFlagReason?: string;
 
   // Evidence & Provenance Tracking (V2.1.2 Data Integrity Patch)
   concerns?: ClinicalConcern[];

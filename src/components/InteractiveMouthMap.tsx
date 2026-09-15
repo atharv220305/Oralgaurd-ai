@@ -11,7 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ORAL_REGIONS } from '../data/oralAnatomy';
-import { OralRegion, MouthMapLocationItem, ClinicalConcern } from '../types';
+import { OralRegion, MouthMapLocationItem, ClinicalConcern, AppLanguage } from '../types';
 
 export interface InteractiveMouthMapProps {
   confirmedLocation?: string | null;
@@ -25,7 +25,7 @@ export interface InteractiveMouthMapProps {
   onClearLocation?: () => void;
   onCancel: () => void;
   onClose?: () => void;
-  language?: 'en' | 'hi' | 'hinglish';
+  language?: AppLanguage | 'hinglish';
   isCompact?: boolean;
 }
 

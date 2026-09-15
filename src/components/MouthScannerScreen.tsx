@@ -18,7 +18,7 @@ import {
   Flashlight,
   SwitchCamera,
 } from 'lucide-react';
-import { PhotoDocumentationItem, OralRegion, MouthMapLocationItem } from '../types';
+import { PhotoDocumentationItem, OralRegion, MouthMapLocationItem, AppLanguage } from '../types';
 import { ORAL_REGIONS } from '../data/oralAnatomy';
 
 interface MouthScannerScreenProps {
@@ -28,7 +28,7 @@ interface MouthScannerScreenProps {
   availableMouthLocations?: MouthMapLocationItem[];
   onOpenMouthMap?: () => void;
   onClose?: () => void;
-  language?: 'en' | 'hi' | 'hinglish';
+  language?: AppLanguage | 'hinglish';
 }
 
 const QUICK_NOTE_SUGGESTIONS = [

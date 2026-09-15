@@ -185,9 +185,10 @@ export const AssessmentHistoryModal: React.FC<AssessmentHistoryModalProps> = ({
               ) : (
                 <div className="space-y-2">
                   {historyItems.map((item, idx) => {
-                    const concern = item.assessment.screeningConcern || 'low';
-                    const isHigh = concern === 'high' || item.assessment.riskLevel === 'high';
-                    const isMod = concern === 'moderate' || item.assessment.riskLevel === 'moderate';
+                    const concern = String(item.assessment.screeningConcern || 'low').toLowerCase();
+                    const risk = String(item.assessment.riskLevel || '').toLowerCase();
+                    const isHigh = concern.includes('high') || risk === 'high';
+                    const isMod = concern.includes('moderate') || risk === 'medium' || risk === 'moderate';
 
                     const dateStr = item.createdAt?.toDate
                       ? item.createdAt.toDate().toLocaleDateString() + ' ' + item.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

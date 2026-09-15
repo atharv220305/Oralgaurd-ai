@@ -31,6 +31,7 @@ import {
   TobaccoUseStatus,
   CessationGoal,
   CessationLogEntry,
+  AppLanguage,
 } from '../types';
 import {
   COMMON_TOBACCO_PRODUCTS,
@@ -48,7 +49,7 @@ interface TobaccoCessationScreenProps {
   onAddLogEntry?: (entry: CessationLogEntry) => void;
   onDeleteLogEntry?: (id: string) => void;
   onClose?: () => void;
-  language?: 'en' | 'hinglish' | 'hi';
+  language?: AppLanguage;
 }
 
 export const TobaccoCessationScreen: React.FC<TobaccoCessationScreenProps> = ({

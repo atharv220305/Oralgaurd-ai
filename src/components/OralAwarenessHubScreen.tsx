@@ -21,7 +21,7 @@ import {
   Smile,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AwarenessArticle, AwarenessCategoryKey, PatientProfile } from '../types';
+import { AwarenessArticle, AwarenessCategoryKey, PatientProfile, AppLanguage } from '../types';
 import {
   AWARENESS_CATEGORIES,
   AWARENESS_ARTICLES,
@@ -34,7 +34,7 @@ interface OralAwarenessHubProps {
   onOpenScanner?: () => void;
   onOpenMouthMap?: () => void;
   onClose?: () => void;
-  language?: 'en' | 'hinglish' | 'hi';
+  language?: AppLanguage;
 }
 
 export const OralAwarenessHubScreen: React.FC<OralAwarenessHubProps> = ({

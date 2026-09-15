@@ -1,14 +1,18 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import { generateAdaptiveDialogueTurn } from './src/data/conversationalEngine';
 import {
   validateExtractedFacts,
   extractStructuredFactsLocally,
 } from './src/data/clinicalKnowledge';
-import { ChatMessage, PatientProfile, ExtractedClinicalFacts } from './src/types';
+import { generateAskOralGuardReply } from './src/data/askOralGuardEngine';
+import { retrieveRelevantKnowledge } from './src/services/knowledge/retrievalEngine';
+import { detectEmergencySigns } from './src/services/safety/emergencyDetector';
+import { buildAskOralGuardPrompt } from './src/services/llm/prompts';
+import { getGeminiClient, executeGeminiPrompt } from './src/services/llm/geminiProvider';
+import { ChatMessage, PatientProfile, ExtractedClinicalFacts, AppLanguage } from './src/types';
 
 dotenv.config();
 
@@ -16,25 +20,6 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
-
-// Initialize Gemini client lazily if key is available
-let genAIClient: GoogleGenAI | null = null;
-function getGenAI(): GoogleGenAI | null {
-  if (!process.env.GEMINI_API_KEY) {
-    return null;
-  }
-  if (!genAIClient) {
-    genAIClient = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    });
-  }
-  return genAIClient;
-}
 
 const SYSTEM_INSTRUCTION = `You are OralGuard AI, an advanced, empathetic, generative medical AI companion and oral health specialist (built like Gemini and ChatGPT). You think on your own and provide intelligent, authentic, personalized answers to whatever question or topic the user brings up, without following rigid scripts or predefined questions.
 
@@ -99,79 +84,131 @@ CORE AI INTELLIGENCE & GENERATIVE REASONING:
        "quickReplies": ["Natural relevant follow-up question or response 1", "Natural relevant follow-up 2", "Natural relevant follow-up 3"]
      }`;
 
-/**
- * Circuit breaker state for Gemini API quota limits (429 / RESOURCE_EXHAUSTED).
- */
-let geminiQuotaCooldownUntil = 0;
+// Ask OralGuard Educational & Interactive Conversational AI API
+app.post('/api/ask-oralguard', async (req, res) => {
+  try {
+    const { message, messages, profile, language = 'en' } = req.body;
+    const currentLang: AppLanguage = (language === 'hi' || language === 'mr' ? language : 'en') as AppLanguage;
+    const userQuery = (message || (messages && messages[messages.length - 1]?.content) || '').trim();
 
-/**
- * Call Gemini with modern models: gemini-3.8-flash -> gemini-flash-latest -> gemini-3.1-flash-lite
- */
-async function callGeminiWithFallback(
-  ai: GoogleGenAI,
-  contents: Array<{ role: 'user' | 'model'; parts: Array<any> }>,
-  systemInstruction: string
-): Promise<string | null> {
-  // If in quota cooldown period, immediately fallback to clinical dialogue engine
-  if (Date.now() < geminiQuotaCooldownUntil) {
-    return null;
-  }
+    if (!userQuery) {
+      return res.status(400).json({ error: 'Message content is required.' });
+    }
 
-  // Modern models per @google/genai guidelines
-  const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+    // 1. Deterministic Emergency Intercept
+    const emergencyCheck = detectEmergencySigns(userQuery, currentLang);
+    if (emergencyCheck.isEmergency && emergencyCheck.urgentGuidanceText) {
+      return res.json({
+        reply: emergencyCheck.urgentGuidanceText,
+        suggestedQuestions:
+          currentLang === 'hi'
+            ? ['आपातकालीन दिशा-निर्देश देखें', 'नजदीकी अस्पताल खोजें']
+            : currentLang === 'mr'
+            ? ['तातडीची मदत पहा', 'जवळचे रुग्णालय शोधा']
+            : ['View Emergency Guidance', 'Find Nearest Hospital'],
+        recommendedFeature: 'emergency',
+        isEmergencyAlert: true,
+        source: 'gemini',
+      });
+    }
 
-  for (const model of modelsToTry) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config: {
-            systemInstruction,
-            temperature: 0.7,
-            responseMimeType: 'application/json',
-          },
+    // 2. Retrieve Relevant Knowledge
+    const relevantKnowledge = retrieveRelevantKnowledge(userQuery, profile, currentLang, 3);
+
+    // 3. Construct System Instruction
+    const systemInstruction = buildAskOralGuardPrompt(userQuery, relevantKnowledge, profile, currentLang);
+
+    // 4. Format Conversation History for Gemini
+    const formattedContents: Array<{ role: 'user' | 'model'; parts: Array<any> }> = [];
+    const rawHistory = Array.isArray(messages) ? messages : [{ role: 'user', content: userQuery }];
+
+    for (const m of rawHistory as Array<{ role: string; content: string }>) {
+      if (!m.content || typeof m.content !== 'string' || !m.content.trim()) continue;
+      const role: 'user' | 'model' = m.role === 'assistant' || m.role === 'model' ? 'model' : 'user';
+
+      if (formattedContents.length > 0 && formattedContents[formattedContents.length - 1].role === role) {
+        formattedContents[formattedContents.length - 1].parts[0].text += `\n${m.content.trim()}`;
+      } else {
+        formattedContents.push({
+          role,
+          parts: [{ text: m.content.trim() }],
         });
-
-        if (response.text && response.text.trim()) {
-          return response.text.trim();
-        }
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        const isQuotaExceeded =
-          errorMessage.includes('429') ||
-          errorMessage.includes('quota') ||
-          errorMessage.includes('RESOURCE_EXHAUSTED') ||
-          errorMessage.includes('exceeded your current quota');
-
-        if (isQuotaExceeded) {
-          geminiQuotaCooldownUntil = Date.now() + 60_000;
-          console.log('[OralGuard AI] Gemini quota reached. Activating zero-latency clinical engine fallback.');
-          return null;
-        }
-
-        const isTemporaryHighDemand =
-          errorMessage.includes('503') ||
-          errorMessage.includes('high demand') ||
-          errorMessage.includes('UNAVAILABLE');
-
-        console.log(`[OralGuard AI] Model ${model} turn ${attempt + 1}: ${errorMessage.slice(0, 80)}`);
-
-        if (attempt === 0 && isTemporaryHighDemand) {
-          await new Promise((resolve) => setTimeout(resolve, 350));
-          continue;
-        }
-
-        // Advance to next model in cascade
-        break;
       }
     }
+
+    // Ensure contents starts with a user turn
+    if (formattedContents.length > 0 && formattedContents[0].role === 'model') {
+      formattedContents.shift();
+    }
+    if (formattedContents.length === 0) {
+      formattedContents.push({ role: 'user', parts: [{ text: userQuery }] });
+    }
+
+    // 5. Call Gemini
+    const geminiRaw = await executeGeminiPrompt(formattedContents, {
+      systemInstruction,
+      temperature: 0.7,
+      responseMimeType: 'application/json',
+    });
+
+    if (geminiRaw) {
+      let parsedReply = geminiRaw;
+      let parsedQuestions: string[] = [];
+      let parsedFeature: string | null = null;
+
+      try {
+        let cleanJson = geminiRaw.trim();
+        if (cleanJson.startsWith('```')) {
+          cleanJson = cleanJson.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+        }
+        const obj = JSON.parse(cleanJson);
+        if (obj && typeof obj.reply === 'string' && obj.reply.trim()) {
+          parsedReply = obj.reply.trim();
+        }
+        if (Array.isArray(obj.suggestedQuestions)) {
+          parsedQuestions = obj.suggestedQuestions.map((q: unknown) => String(q).trim()).filter(Boolean);
+        }
+        if (obj.recommendedFeature && typeof obj.recommendedFeature === 'string') {
+          parsedFeature = obj.recommendedFeature;
+        }
+      } catch {
+        parsedReply = geminiRaw;
+      }
+
+      return res.json({
+        reply: parsedReply,
+        suggestedQuestions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
+        recommendedFeature: parsedFeature,
+        isEmergencyAlert: false,
+        source: 'gemini',
+      });
+    }
+
+    // 6. Resilient Fallback to Knowledge Engine if offline / quota
+    const fallback = generateAskOralGuardReply(userQuery, profile || {}, currentLang);
+    return res.json({
+      reply: fallback.reply,
+      suggestedQuestions: fallback.suggestedQuestions,
+      recommendedFeature: fallback.isEmergencyAlert ? 'emergency' : null,
+      isEmergencyAlert: fallback.isEmergencyAlert,
+      source: 'clinical-engine',
+    });
+  } catch (error: unknown) {
+    console.warn('[OralGuard AI] Ask-OralGuard fell back to clinical knowledge engine.');
+
+    const currentLang = (req.body?.language || 'en') as AppLanguage;
+    const fallback = generateAskOralGuardReply(req.body?.message || '', req.body?.profile || {}, currentLang);
+    return res.json({
+      reply: fallback.reply,
+      suggestedQuestions: fallback.suggestedQuestions,
+      recommendedFeature: null,
+      isEmergencyAlert: false,
+      source: 'clinical-engine',
+    });
   }
+});
 
-  return null;
-}
-
-// Conversational Chat API with zero-downtime fallback
+// Conversational Screening & Triage Chat API with zero-downtime fallback
 app.post('/api/chat', async (req, res) => {
   try {
     const {
@@ -183,14 +220,13 @@ app.post('/api/chat', async (req, res) => {
       unansweredIndicators,
       imageAttachment,
     } = req.body;
-    const ai = getGenAI();
 
     // Prepare clean alternating contents for Gemini
     const formattedContents: Array<{ role: 'user' | 'model'; parts: Array<any> }> = [];
 
     for (const m of (messages || []) as Array<{ role: string; content: string }>) {
       if (!m.content || typeof m.content !== 'string' || !m.content.trim()) continue;
-      const role: 'user' | 'model' = m.role === 'assistant' ? 'model' : 'user';
+      const role: 'user' | 'model' = m.role === 'assistant' || m.role === 'model' ? 'model' : 'user';
       if (formattedContents.length > 0 && formattedContents[formattedContents.length - 1].role === role) {
         formattedContents[formattedContents.length - 1].parts[0].text += `\n${m.content.trim()}`;
       } else {
@@ -221,6 +257,10 @@ app.post('/api/chat', async (req, res) => {
     if (formattedContents.length === 0) {
       formattedContents.push({ role: 'user', parts: [{ text: 'Hello, please introduce yourself and tell me how you can help.' }] });
     }
+
+    const lastUserMsg = (messages?.[messages.length - 1]?.content || '') as string;
+    const patientProfile: PatientProfile = (currentProfile || {}) as PatientProfile;
+    const currentLang: AppLanguage = (language === 'hi' || language === 'mr' ? language : 'en') as AppLanguage;
 
     const knownFields: string[] = [];
     const forbiddenTopics: string[] = [];
@@ -293,21 +333,26 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
-    const isHindi = language === 'hi';
-    const isMarathi = language === 'mr';
-    const isEnglish = language === 'en';
+    const isHindi = currentLang === 'hi';
+    const isMarathi = currentLang === 'mr';
+    const isEnglish = currentLang === 'en';
 
     const languageDirective = isEnglish
-      ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in simple, natural English. DO NOT use any Hindi or Hinglish words.'
+      ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in simple, natural English. DO NOT use any Hindi words.'
       : isHindi
       ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in clear, authentic Devanagari Hindi (हिन्दी). Anatomical or clinical terms may remain in English where appropriate.'
       : isMarathi
       ? 'CRITICAL MANDATE: Respond EXCLUSIVELY in clear, authentic Devanagari Marathi (मराठी). Anatomical or clinical terms may remain in English where appropriate.'
-      : 'CRITICAL MANDATE: Respond in natural conversational Indian Hinglish in Latin script.';
+      : 'CRITICAL MANDATE: Respond in natural conversational English.';
+
+    const retrievedKnowledge = retrieveRelevantKnowledge(lastUserMsg, patientProfile, currentLang, 2);
 
     const dynamicSystemInstruction = `${SYSTEM_INSTRUCTION}
 
 ${languageDirective}
+
+TRUSTED ORALGUARD CLINICAL REFERENCE:
+${retrievedKnowledge}
 
 PATIENT CLINICAL DOSSIER (CONFIRMED SO FAR):
 ${knownFields.length > 0 ? knownFields.map(f => `• ${f}`).join('\n') : 'Initial interaction - no clinical facts established yet.'}
@@ -328,8 +373,6 @@ CONVERSATIONAL INTELLIGENCE DIRECTIVE:
       content: m.content || '',
       timestamp: 'Just now',
     }));
-    const lastUserMsg = (messages?.[messages.length - 1]?.content || '') as string;
-    const patientProfile: PatientProfile = (currentProfile || {}) as PatientProfile;
     const turn = generateAdaptiveDialogueTurn(
       lastUserMsg,
       patientProfile,
@@ -339,40 +382,43 @@ CONVERSATIONAL INTELLIGENCE DIRECTIVE:
 
     const localFacts = extractStructuredFactsLocally(lastUserMsg, patientProfile);
 
-    if (ai) {
-      const geminiReply = await callGeminiWithFallback(ai, formattedContents, dynamicSystemInstruction);
-      if (geminiReply) {
-        let parsedReply = geminiReply;
-        let parsedQuickReplies: string[] | undefined = undefined;
-        let parsedFacts: ExtractedClinicalFacts = { ...localFacts };
+    const geminiReply = await executeGeminiPrompt(formattedContents, {
+      systemInstruction: dynamicSystemInstruction,
+      temperature: 0.7,
+      responseMimeType: 'application/json',
+    });
 
-        try {
-          let cleanJson = geminiReply.trim();
-          if (cleanJson.startsWith('```')) {
-            cleanJson = cleanJson.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-          }
-          const obj = JSON.parse(cleanJson);
-          if (obj && typeof obj.reply === 'string' && obj.reply.trim()) {
-            parsedReply = obj.reply.trim();
-          }
-          if (Array.isArray(obj.quickReplies) && obj.quickReplies.length > 0) {
-            parsedQuickReplies = obj.quickReplies.map((q: unknown) => String(q).trim()).filter(Boolean);
-          }
-          if (obj && obj.extractedFacts && typeof obj.extractedFacts === 'object') {
-            const validatedGeminiFacts = validateExtractedFacts(obj.extractedFacts);
-            parsedFacts = { ...localFacts, ...validatedGeminiFacts };
-          }
-        } catch {
-          parsedReply = geminiReply;
+    if (geminiReply) {
+      let parsedReply = geminiReply;
+      let parsedQuickReplies: string[] | undefined = undefined;
+      let parsedFacts: ExtractedClinicalFacts = { ...localFacts };
+
+      try {
+        let cleanJson = geminiReply.trim();
+        if (cleanJson.startsWith('```')) {
+          cleanJson = cleanJson.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
         }
-
-        return res.json({
-          reply: parsedReply,
-          extractedFacts: parsedFacts,
-          quickReplies: parsedQuickReplies || turn.suggestedQuickReplies,
-          source: 'gemini',
-        });
+        const obj = JSON.parse(cleanJson);
+        if (obj && typeof obj.reply === 'string' && obj.reply.trim()) {
+          parsedReply = obj.reply.trim();
+        }
+        if (Array.isArray(obj.quickReplies) && obj.quickReplies.length > 0) {
+          parsedQuickReplies = obj.quickReplies.map((q: unknown) => String(q).trim()).filter(Boolean);
+        }
+        if (obj && obj.extractedFacts && typeof obj.extractedFacts === 'object') {
+          const validatedGeminiFacts = validateExtractedFacts(obj.extractedFacts);
+          parsedFacts = { ...localFacts, ...validatedGeminiFacts };
+        }
+      } catch {
+        parsedReply = geminiReply;
       }
+
+      return res.json({
+        reply: parsedReply,
+        extractedFacts: parsedFacts,
+        quickReplies: parsedQuickReplies || turn.suggestedQuickReplies,
+        source: 'gemini',
+      });
     }
 
     // Seamless fallback to clinical dialogue engine (guarantees 100% uptime even during Gemini 503 spikes)

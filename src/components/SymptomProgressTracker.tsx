@@ -24,6 +24,7 @@ import {
   SymptomProgressStatus,
   PatientProfile,
   MouthMapLocationItem,
+  AppLanguage,
 } from '../types';
 import { ORAL_REGIONS } from '../data/oralAnatomy';
 
@@ -34,7 +35,7 @@ interface SymptomProgressTrackerProps {
   screeningProfile?: PatientProfile;
   availableMouthLocations?: MouthMapLocationItem[];
   onClose?: () => void;
-  language?: 'en' | 'hi' | 'hinglish';
+  language?: AppLanguage | 'hinglish';
 }
 
 const COMMON_SYMPTOMS = [
