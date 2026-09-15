@@ -56,8 +56,8 @@ export async function executeGeminiPrompt(
 
   const configuredModel = process.env.GEMINI_MODEL;
   const modelsToTry = configuredModel
-    ? [configuredModel, 'gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest']
-    : ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    ? [configuredModel, 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-flash-latest']
+    : ['gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
   // Deduplicate
   const uniqueModels = Array.from(new Set(modelsToTry));

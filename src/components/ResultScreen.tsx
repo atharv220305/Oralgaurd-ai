@@ -35,16 +35,19 @@ import {
   Hospital,
   MessageSquare,
   History,
+  ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AssessmentResult, PatientProfile, AppLanguage } from '../types';
 import { getUIText } from '../data/translations';
+import { PrivacyTrustFooter } from './PrivacyTrustFooter';
 
 interface ResultScreenProps {
-  assessment: AssessmentResult;
+  assessment?: AssessmentResult | null;
   profile?: PatientProfile;
   onBookAppointment: (shareSummaryConsent?: boolean) => void;
   onRetake: () => void;
+  onStartScreening?: (starterText?: string) => void;
   onOpenScanner?: () => void;
   onOpenTracker?: () => void;
   onOpenMouthMap?: () => void;
@@ -63,6 +66,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   profile,
   onBookAppointment,
   onRetake,
+  onStartScreening,
   onOpenScanner,
   onOpenTracker,
   onOpenMouthMap,
@@ -81,11 +85,175 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [userConsentedToShare, setUserConsentedToShare] = useState<boolean | null>(null);
 
-  const { riskLevel, screeningConcern } = assessment;
   const lang: AppLanguage = (profile?.detectedLanguage as AppLanguage) || 'en';
   const isHindi = lang === 'hi';
   const isMarathi = lang === 'mr';
   const t = getUIText(lang);
+
+  // If no assessment has been completed yet, display an illustrative and informative empty state
+  if (!assessment) {
+    const starterExamples = isHindi
+      ? [
+          { label: 'मसूड़ों से खून आना', text: 'ब्रश करते समय मसूड़ों से खून आता है' },
+          { label: 'दांत में झनझनाहट (ठंडा/गर्म)', text: 'ठंडा पानी पीने पर दांतों में तेज झनझनाहट होती है' },
+          { label: '2 हफ्ते से अधिक पुराना छाला', text: 'जीभ पर छाला 2 हफ़्ते से ठीक नहीं हो रहा है' },
+          { label: 'चबाने पर दांत दर्द', text: 'खाना चबाने पर पीछे के दांत में दर्द होता है' },
+        ]
+      : isMarathi
+      ? [
+          { label: 'हिरड्यांतून रक्तस्त्राव', text: 'ब्रश करताना हिरड्यांतून रक्त येते' },
+          { label: 'दात आंबणे (थंड/गरम)', text: 'थंड पाणी पिताना दातांमध्ये तीव्र कळ येते' },
+          { label: '२ आठवड्यांहून जुना व्रण/फोड', text: 'जीभेवर झालेला फोड २ आठवड्यांपेक्षा जास्त काळ बरा झालेला नाही' },
+          { label: 'चावताना दातदुखी', text: 'अन्न चावताना पाठीमागच्या दातात दुखते' },
+        ]
+      : [
+          { label: 'Bleeding gums when brushing', text: 'My gums bleed whenever I brush or floss.' },
+          { label: 'Sensitivity to cold/hot', text: 'I feel sharp sensitivity in my molars when drinking cold water.' },
+          { label: 'Mouth sore lasting > 2 weeks', text: 'I have a sore inside my cheek that has not healed for over 2 weeks.' },
+          { label: 'Pain when chewing', text: 'I experience a dull ache when chewing food on my left side.' },
+        ];
+
+    return (
+      <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
+        <div className="p-4 sm:p-5 max-w-lg mx-auto w-full space-y-4 pb-8 flex-1">
+          {/* Header */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                {isHindi ? 'मूल्यांकन मॉड्यूल' : isMarathi ? 'मूल्यांकन विभाग' : 'Assessment Module'}
+              </span>
+              <span className="text-[10px] text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                {isHindi ? 'निःशुल्क प्रारंभिक जांच' : isMarathi ? 'मोफत प्राथमिक तपासणी' : 'AI-Assisted Triage'}
+              </span>
+            </div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 mt-0.5">
+              {isHindi ? 'मुँह के स्वास्थ्य का समग्र मूल्यांकन' : isMarathi ? 'तोंडाच्या आरोग्याचे सर्वसमावेशक मूल्यांकन' : 'Oral Health & Triage Assessment'}
+            </h1>
+          </div>
+
+          {/* Illustrative Hero Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4 text-center"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center mx-auto shadow-2xs">
+              <Stethoscope className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1">
+              <h2 className="text-base font-bold text-slate-900">
+                {isHindi
+                  ? 'अद्याप कोई सक्रिय मूल्यांकन नहीं है'
+                  : isMarathi
+                  ? 'अद्याप कोणतेही सक्रिय मूल्यांकन नाही'
+                  : 'No Active Assessment Generated Yet'}
+              </h2>
+              <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                {isHindi
+                  ? 'OralGuard AI एक संक्षिप्त संवादात्मक बातचीत के माध्यम से आपके लक्षणों, आदतों और स्थान का विश्लेषण करके एक संरचित नैदानिक ट्राइएज और डॉक्टर सारांश तैयार करता है।'
+                  : isMarathi
+                  ? 'OralGuard AI एका लहान चॅट तपासणीद्वारे तुमच्या लक्षणांचे व सवयींचे विश्लेषण करून सविस्तर अहवाल तयार करते.'
+                  : 'Complete a brief oral health check to generate your categorized care level, suggested provider specialty, and doctor handoff summary.'}
+              </p>
+            </div>
+
+            {/* Feature preview pills */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-left pt-1">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                <div className="flex items-center gap-1.5 text-teal-700 font-bold text-xs">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Care Level</span>
+                </div>
+                <p className="text-[10.5px] text-slate-500 leading-snug">
+                  Routine, Moderate, or Priority Triage timeframe.
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                <div className="flex items-center gap-1.5 text-teal-700 font-bold text-xs">
+                  <Hospital className="w-4 h-4" />
+                  <span>Provider Match</span>
+                </div>
+                <p className="text-[10.5px] text-slate-500 leading-snug">
+                  Specialty recommendations (Dentist, Periodontist, ENT).
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                <div className="flex items-center gap-1.5 text-teal-700 font-bold text-xs">
+                  <FileText className="w-4 h-4" />
+                  <span>Doctor Note</span>
+                </div>
+                <p className="text-[10.5px] text-slate-500 leading-snug">
+                  Formatted summary to share with your dentist.
+                </p>
+              </div>
+            </div>
+
+            {/* Primary Action Button */}
+            <button
+              type="button"
+              onClick={() => onStartScreening ? onStartScreening() : onRetake()}
+              className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer group"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>{isHindi ? 'मौखिक स्वास्थ्य जांच शुरू करें' : isMarathi ? 'तोंड तपासणी चॅट सुरू करा' : 'Start Oral Health Screening'}</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </motion.div>
+
+          {/* Starter Questions / Topics Section */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              {isHindi ? 'सामान्य लक्षणों से शुरुआत करें:' : isMarathi ? 'सामान्य लक्षणांमधून सुरुवात करा:' : 'Or Start with a Common Symptom:'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {starterExamples.map((ex, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onStartScreening ? onStartScreening(ex.text) : onRetake()}
+                  className="p-3 text-left bg-white hover:bg-teal-50/60 border border-slate-200 hover:border-teal-300 rounded-xl transition-all text-xs group cursor-pointer shadow-2xs space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-xs group-hover:text-teal-900">
+                      {ex.label}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-teal-600 shrink-0" />
+                  </div>
+                  <p className="text-[11px] text-slate-500 line-clamp-1">
+                    "{ex.text}"
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Past History Link if available */}
+          {onOpenHistory && (
+            <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-slate-600">
+                <History className="w-4 h-4 text-teal-600" />
+                <span>{isHindi ? 'पिछली जाँच रिकॉर्ड देखें' : isMarathi ? 'मागील तपासणी नोंदी पहा' : 'View past assessments archive'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenHistory}
+                className="text-teal-700 hover:text-teal-900 font-semibold underline cursor-pointer"
+              >
+                {isHindi ? 'इतिहास खोलें' : isMarathi ? 'इतिहास उघडा' : 'Open History'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <PrivacyTrustFooter language={lang} />
+      </div>
+    );
+  }
+
+  const { riskLevel, screeningConcern } = assessment;
 
   const concernConfig = {
     low: {
@@ -179,14 +347,14 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         <div className="pt-1">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-              {isHindi ? 'स्क्रीनिंग परिणाम' : isMarathi ? 'स्क्रीनिंग निकाल' : 'Screening Result'}
+              {isHindi ? 'स्क्रीनिंग व ट्राइएज परिणाम' : isMarathi ? 'स्क्रीनिंग व ट्राइएज निकाल' : 'Oral Health & Triage Assessment'}
             </span>
             <span className="text-[10px] text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
               {isHindi ? 'प्रोटोटाइप मूल्यांकन' : isMarathi ? 'प्रोटोटाइप मूल्यांकन' : 'Prototype Evaluation'}
             </span>
           </div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 mt-0.5">
-            {isHindi ? 'मुँह के कैंसर का जोखिम मूल्यांकन' : isMarathi ? 'तोंडाच्या कर्करोग जोखीम मूल्यांकन' : 'Oral Cancer Risk Indication'}
+            {isHindi ? 'मुँह के स्वास्थ्य का समग्र मूल्यांकन' : isMarathi ? 'तोंडाच्या आरोग्याचे सर्वसमावेशक मूल्यांकन' : 'Comprehensive Oral Health Assessment'}
           </h1>
         </div>
 
@@ -198,29 +366,117 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           className={`p-4 sm:p-5 rounded-2xl border ${concernConfig.themeBorder} ${concernConfig.themeBg} shadow-xs relative overflow-hidden`}
         >
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-1.5">
               <span
-                className={`px-3 py-1 rounded-full text-white text-xs font-bold tracking-wide flex items-center gap-1.5 shadow-2xs ${concernConfig.badgeBg}`}
+                className={`px-3 py-1 rounded-full text-white text-xs font-bold tracking-wide flex items-center gap-1.5 shadow-2xs ${concernConfig.badgeBg} w-fit`}
               >
                 <RiskIcon className="w-3.5 h-3.5" />
-                {screeningConcern}
+                {assessment.careLevel ? `CARE LEVEL: ${assessment.careLevel.toUpperCase()}` : screeningConcern}
               </span>
+              {assessment.recommendedProfessional && (
+                <div className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
+                  <Stethoscope className="w-3.5 h-3.5 text-teal-700" />
+                  <span>Recommended Provider: <strong className="text-teal-900">{assessment.recommendedProfessional}</strong></span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1 text-slate-500 text-xs">
               <Clock className="w-3.5 h-3.5" />
-              <span>{concernConfig.timeframe}</span>
+              <span>{assessment.suggestedTimeframe || concernConfig.timeframe}</span>
             </div>
           </div>
 
           <p className="text-xs text-slate-700 mt-3 leading-relaxed">
-            {concernConfig.subText}
+            {assessment.recommendation || concernConfig.subText}
           </p>
 
           <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Level: <strong className="uppercase text-slate-800">{riskLevel}</strong></span>
+            <span>Overall Concern: <strong className="uppercase text-slate-800">{screeningConcern}</strong></span>
             <span>Non-Diagnostic Triage</span>
           </div>
         </motion.div>
+
+        {/* Identified Clinical Concerns (Multi-concern model) */}
+        {assessment.concerns && assessment.concerns.length > 0 && (
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-teal-600" />
+                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  {isHindi ? 'पहचाने गए मुख्य लक्षण व चिंताएँ' : isMarathi ? 'आढळून आलेली मुख्य लक्षणे व चिंता' : 'Identified Oral Health Concerns'}
+                </h2>
+              </div>
+              <span className="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded text-slate-600">
+                {assessment.concerns.length} {assessment.concerns.length === 1 ? 'Concern' : 'Concerns'}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {assessment.concerns.map((concern, idx) => (
+                <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-teal-600" />
+                      <span className="text-xs font-bold text-slate-900">{concern.title}</span>
+                    </div>
+                    {concern.locations && concern.locations.length > 0 && (
+                      <span className="text-[10px] text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                        {concern.locations.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    {concern.description}
+                  </p>
+                  {concern.recommendedNextStep && (
+                    <div className="text-[10.5px] text-teal-800 bg-teal-50/70 p-1.5 rounded-lg border border-teal-100 flex items-center gap-1">
+                      <Info className="w-3 h-3 text-teal-600 shrink-0" />
+                      <span>{concern.recommendedNextStep}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Key Clinical Findings & Protective Factors */}
+        {assessment.keyFindings && assessment.keyFindings.length > 0 && (
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Info className="w-4 h-4 text-teal-600" />
+              <span>{isHindi ? 'नैदानिक निष्कर्ष' : isMarathi ? 'वैद्यकीय निष्कर्ष' : 'Key Clinical Findings'}</span>
+            </h2>
+
+            <div className="space-y-2">
+              {assessment.keyFindings.map((finding, idx) => (
+                <div key={idx} className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-start gap-2">
+                  <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${finding.impact === 'flag' ? 'bg-rose-500' : finding.impact === 'moderate' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                  <div>
+                    <strong className="text-slate-900 block">{finding.title}</strong>
+                    <span className="text-[11px] text-slate-600 leading-relaxed">{finding.description}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {assessment.protectiveFactors && assessment.protectiveFactors.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 space-y-1">
+                <span className="text-[10.5px] font-bold text-emerald-800 uppercase tracking-wider block">
+                  {isHindi ? 'सकारात्मक सुरक्षात्मक कारक' : isMarathi ? 'सकारात्मक संरक्षणात्मक घटक' : 'Reported Protective Factors'}
+                </span>
+                <ul className="space-y-1">
+                  {assessment.protectiveFactors.map((fact, idx) => (
+                    <li key={idx} className="text-[11px] text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>{fact}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Quick Access Tools: Ask OralGuard, Follow-up & Reminders, Hub */}
         <div className="grid grid-cols-2 gap-2">
@@ -376,7 +632,11 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                   : 'When you visit your dentist or ENT specialist, consider asking:'}
               </p>
               <ul className="list-disc list-inside space-y-1.5 text-slate-700 pl-1">
-                {isHindi ? (
+                {assessment.patientQuestions && assessment.patientQuestions.length > 0 ? (
+                  assessment.patientQuestions.map((q, idx) => (
+                    <li key={idx}>{q}</li>
+                  ))
+                ) : isHindi ? (
                   <>
                     <li>क्या आप मेरी जीभ, मुँह के निचले हिस्से और गालों के आंतरिक ऊतकों की संपूर्ण जांच कर सकते हैं?</li>
                     <li>क्या यह घाव सामान्य है या यह किसी प्री-कैंसर घाव (Precancerous lesion) का संकेत हो सकता है?</li>
@@ -533,7 +793,27 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             </span>
           </button>
         </div>
+
+        {/* Past History Link */}
+        {onOpenHistory && (
+          <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 text-slate-600">
+              <History className="w-4 h-4 text-teal-600" />
+              <span>{isHindi ? 'पिछली जाँच रिकॉर्ड देखें' : isMarathi ? 'मागील तपासणी नोंदी पहा' : 'View past assessments archive'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              className="text-teal-700 hover:text-teal-900 font-semibold underline cursor-pointer"
+            >
+              {isHindi ? 'इतिहास खोलें' : isMarathi ? 'इतिहास उघडा' : 'Open History'}
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Subtle Trust & Privacy Footer */}
+      <PrivacyTrustFooter language={lang} />
 
       {/* Doctor Summary Full Modal */}
       <AnimatePresence>

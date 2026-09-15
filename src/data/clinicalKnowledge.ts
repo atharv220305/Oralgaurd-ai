@@ -3,6 +3,8 @@ import {
   ClinicProvider,
   PatientProfile,
   ClinicalConcern,
+  CareLevel,
+  RecommendedProfessional,
   ExtractedClinicalFacts,
   RiskLevel,
   ScreeningConcernLevel,
@@ -2470,26 +2472,246 @@ export function buildClinicalConcerns(
     if (!bleedingConcern) {
       bleedingConcern = {
         id: 'concern-bleeding-1',
-        type: 'bleeding',
+        type: isGumBleeding ? 'gum_gingival_periodontal' : 'bleeding',
+        title: isGumBleeding ? 'Gingival Bleeding / Inflammation' : 'Oral Soft Tissue Bleeding',
         description: bleedDesc,
         locations: bleedLocs,
         gumBleeding: isGumBleeding ? true : undefined,
         bleeding: true,
+        severity: 'moderate',
         symptomTrigger: isGumBleeding ? 'brushing' : undefined,
         status: 'active',
         isPrimary: concerns.length === 0,
+        recommendedNextStep: 'Schedule a periodontal checkup and professional scaling with a dentist.',
+        professionalEvaluationRecommended: true,
         detectedAt: Date.now(),
         lastUpdatedAt: Date.now(),
       };
       concerns.push(bleedingConcern);
     } else {
       if (isGumBleeding) {
+        bleedingConcern.type = 'gum_gingival_periodontal';
+        bleedingConcern.title = 'Gingival Bleeding / Inflammation';
         bleedingConcern.description = bleedDesc;
         bleedingConcern.locations = Array.from(new Set([...(bleedingConcern.locations || []), ...bleedLocs]));
         bleedingConcern.symptomTrigger = 'brushing';
         bleedingConcern.gumBleeding = true;
+        bleedingConcern.recommendedNextStep = 'Schedule a periodontal checkup and professional scaling with a dentist.';
       }
       bleedingConcern.lastUpdatedAt = Date.now();
+    }
+  }
+
+  // 3b. Tooth Pain / Toothache concern
+  if (
+    currentProfile.toothPain ||
+    lower.includes('toothache') ||
+    lower.includes('tooth pain') ||
+    lower.includes('teeth pain') ||
+    lower.includes('daant me dard') ||
+    lower.includes('danto me dard') ||
+    lower.includes('daad dukhne') ||
+    lower.includes('दांत में दर्द') ||
+    lower.includes('दात दुखणे')
+  ) {
+    let toothPainConcern = concerns.find((c) => c.type === 'tooth_pain');
+    if (!toothPainConcern) {
+      toothPainConcern = {
+        id: 'concern-tooth-pain-1',
+        type: 'tooth_pain',
+        title: 'Toothache / Dental Pain',
+        description: 'Pain localized to tooth or jaw when biting or constant ache.',
+        locations: currentProfile.primarySymptomLocation ? [currentProfile.primarySymptomLocation] : ['Upper / Lower Teeth'],
+        pain: true,
+        severity: 'moderate',
+        status: 'active',
+        isPrimary: concerns.length === 0,
+        recommendedNextStep: 'Undergo dental examination and periapical X-ray with a General Dentist.',
+        professionalEvaluationRecommended: true,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(toothPainConcern);
+    }
+  }
+
+  // 3c. Tooth Sensitivity concern
+  if (
+    currentProfile.toothSensitivity ||
+    lower.includes('sensitivity') ||
+    lower.includes('cold water') ||
+    lower.includes('cold drinks') ||
+    lower.includes('hot tea') ||
+    lower.includes('jhanjhanahat') ||
+    lower.includes('sensitive teeth') ||
+    lower.includes('संवेदनशीलता') ||
+    lower.includes('झणझणाट')
+  ) {
+    let sensConcern = concerns.find((c) => c.type === 'tooth_sensitivity');
+    if (!sensConcern) {
+      sensConcern = {
+        id: 'concern-sensitivity-1',
+        type: 'tooth_sensitivity',
+        title: 'Dentine Hypersensitivity',
+        description: 'Sharp, transient sensitivity to cold liquids, sweet foods, or air.',
+        locations: currentProfile.primarySymptomLocation ? [currentProfile.primarySymptomLocation] : ['Teeth / Enamel'],
+        severity: 'mild',
+        status: 'active',
+        isPrimary: concerns.length === 0,
+        recommendedNextStep: 'Use desensitizing toothpaste and consult a dentist to check for enamel wear or exposed roots.',
+        professionalEvaluationRecommended: true,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(sensConcern);
+    }
+  }
+
+  // 3d. Tooth Decay / Cavity concern
+  if (
+    currentProfile.toothDecay ||
+    lower.includes('cavity') ||
+    lower.includes('decay') ||
+    lower.includes('kida') ||
+    lower.includes('keeda') ||
+    lower.includes('black spot on tooth') ||
+    lower.includes('hole in tooth') ||
+    lower.includes('दांत में कीड़ा') ||
+    lower.includes('कीड')
+  ) {
+    let decayConcern = concerns.find((c) => c.type === 'tooth_decay_cavity');
+    if (!decayConcern) {
+      decayConcern = {
+        id: 'concern-decay-1',
+        type: 'tooth_decay_cavity',
+        title: 'Dental Caries / Cavity',
+        description: 'Possible tooth decay, cavity formation, or structural enamel breakdown.',
+        locations: currentProfile.primarySymptomLocation ? [currentProfile.primarySymptomLocation] : ['Teeth'],
+        severity: 'moderate',
+        status: 'active',
+        isPrimary: concerns.length === 0,
+        recommendedNextStep: 'Visit a dentist for clinical evaluation and restoration (filling) before pulp involvement.',
+        professionalEvaluationRecommended: true,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(decayConcern);
+    }
+  }
+
+  // 3e. Bad Breath / Halitosis concern
+  if (
+    currentProfile.badBreath ||
+    lower.includes('bad breath') ||
+    lower.includes('halitosis') ||
+    lower.includes('bad smell') ||
+    lower.includes('mooh se badboo') ||
+    lower.includes('muh se badboo') ||
+    lower.includes('दुर्गंध') ||
+    lower.includes('घाण वास')
+  ) {
+    let breathConcern = concerns.find((c) => c.type === 'bad_breath_halitosis');
+    if (!breathConcern) {
+      breathConcern = {
+        id: 'concern-breath-1',
+        type: 'bad_breath_halitosis',
+        title: 'Chronic Halitosis / Oral Odor',
+        description: 'Persistent oral malodor potentially related to biofilm, tongue coating, or subgingival plaque.',
+        locations: ['Oral Cavity / Tongue Dorsum'],
+        severity: 'mild',
+        status: 'active',
+        isPrimary: concerns.length === 0,
+        recommendedNextStep: 'Maintain tongue scraping, flossing, and schedule professional dental prophylaxis.',
+        professionalEvaluationRecommended: true,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(breathConcern);
+    }
+  }
+
+  // 3f. Oral / Facial Swelling concern
+  if (
+    currentProfile.oralSwelling ||
+    (lower.includes('sujan') && !lower.includes('neck') && !lower.includes('gale')) ||
+    lower.includes('swollen gum') ||
+    lower.includes('gum boil') ||
+    lower.includes('swollen cheek') ||
+    lower.includes('abscess') ||
+    lower.includes('सूजन')
+  ) {
+    let swellingConcern = concerns.find((c) => c.type === 'oral_swelling');
+    if (!swellingConcern) {
+      swellingConcern = {
+        id: 'concern-swelling-1',
+        type: 'oral_swelling',
+        title: 'Oral Soft Tissue Swelling / Possible Abscess',
+        description: 'Localized swelling in the gingiva, cheek, or alveolar ridge.',
+        locations: currentProfile.primarySymptomLocation ? [currentProfile.primarySymptomLocation] : ['Oral Tissues'],
+        severity: 'severe',
+        status: 'active',
+        isPrimary: concerns.length === 0,
+        recommendedNextStep: 'Seek prompt dental or emergency evaluation to rule out acute odontogenic infection.',
+        professionalEvaluationRecommended: true,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(swellingConcern);
+    }
+  }
+
+  // 3g. Jaw / Facial Pain concern
+  if (
+    currentProfile.jawPain ||
+    lower.includes('jaw pain') ||
+    lower.includes('tmj') ||
+    lower.includes('jaw click') ||
+    lower.includes('jabde me dard') ||
+    lower.includes('जबड़े में दर्द')
+  ) {
+    let jawConcern = concerns.find((c) => c.type === 'jaw_facial_pain');
+    if (!jawConcern) {
+      jawConcern = {
+        id: 'concern-jaw-1',
+        type: 'jaw_facial_pain',
+        title: 'Temporomandibular / Jaw Pain',
+        description: 'Pain, stiffness, or clicking in the temporomandibular joint or masticatory muscles.',
+        locations: ['Temporomandibular Joint / Jaw'],
+        severity: 'moderate',
+        status: 'active',
+        isPrimary: concerns.length === 0,
+        recommendedNextStep: 'Consult a dental specialist for occlusal and TMJ functional assessment.',
+        professionalEvaluationRecommended: true,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(jawConcern);
+    }
+  }
+
+  // 3h. Tobacco / Areca exposure concern
+  if (
+    (currentProfile.tobaccoSmokeless && currentProfile.tobaccoSmokeless !== 'none') ||
+    (currentProfile.arecaOrBetelNut && currentProfile.arecaOrBetelNut !== 'none')
+  ) {
+    let tobaccoConcern = concerns.find((c) => c.type === 'tobacco_areca_risk');
+    const habitName = currentProfile.tobaccoSmokeless || currentProfile.arecaOrBetelNut || 'tobacco/areca';
+    if (!tobaccoConcern) {
+      tobaccoConcern = {
+        id: 'concern-tobacco-1',
+        type: 'tobacco_areca_risk',
+        title: `Chemical Mucosal Exposure (${habitName.toUpperCase()})`,
+        description: `Exposure to ${habitName}, elevating risk for mucosal keratosis, submucous fibrosis (OSMF), and dysplastic transformation.`,
+        locations: currentProfile.primarySymptomLocation ? [currentProfile.primarySymptomLocation] : ['Buccal Mucosa / Gingivobuccal Sulcus'],
+        severity: 'moderate',
+        status: 'active',
+        isPrimary: false,
+        recommendedNextStep: 'Enroll in tobacco cessation counseling and have regular visual mucosal screenings.',
+        professionalEvaluationRecommended: true,
+        detectedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+      };
+      concerns.push(tobaccoConcern);
     }
   }
 
@@ -3002,16 +3224,97 @@ export function extractStructuredFactsLocally(
 }
 
 /**
- * Computes oral cancer screening concern level using multi-factor clinical triage guidelines.
- * Respects strict safety boundaries: Does NOT claim to diagnose cancer or output arbitrary probabilities.
+ * Computes overall oral health risk indication and clinical triage using multi-factor guidelines.
+ * Respects strict safety boundaries: Does NOT claim to diagnose cancer or dental conditions, or output arbitrary probabilities.
  */
 export function computeRiskAssessment(profile: PatientProfile): AssessmentResult {
   let riskScore = 0;
   const findings: AssessmentResult['keyFindings'] = [];
   const protective: string[] = [];
 
-  // 1. Lesion / Ulcer & Duration Check
-  if (profile.hasLesionOrUlcer === true) {
+  // 1. Build canonical list of clinical concerns (Multi-concern model)
+  const concerns: ClinicalConcern[] = buildClinicalConcerns(profile);
+
+  // 2. Evaluate specific oral health concerns
+  // Gum / Periodontal Bleeding
+  const hasGumBleeding = profile.gumBleeding || concerns.some((c) => c.type === 'gum_gingival_periodontal' || c.gumBleeding);
+  if (hasGumBleeding) {
+    riskScore += 12;
+    findings.push({
+      title: 'Gingival Bleeding / Periodontal Inflammation',
+      description: 'Bleeding while brushing or flossing indicates marginal gingivitis or subgingival plaque accumulation requiring professional periodontal evaluation.',
+      impact: 'moderate',
+    });
+  }
+
+  // Tooth Pain
+  const hasToothPain = profile.toothPain || concerns.some((c) => c.type === 'tooth_pain');
+  if (hasToothPain) {
+    riskScore += 20;
+    findings.push({
+      title: 'Dental Pain / Odontogenic Ache',
+      description: 'Tooth pain when biting, chewing, or at rest suggests possible deep caries, cracked tooth syndrome, or pulpitis requiring clinical and radiographic dental examination.',
+      impact: 'moderate',
+    });
+  }
+
+  // Tooth Sensitivity
+  const hasSensitivity = profile.toothSensitivity || concerns.some((c) => c.type === 'tooth_sensitivity');
+  if (hasSensitivity) {
+    riskScore += 10;
+    findings.push({
+      title: 'Dentine Hypersensitivity / Enamel Wear',
+      description: 'Sensitivity to cold, hot, or sweet stimuli often indicates enamel erosion, exposed root surfaces, or early cavitation.',
+      impact: 'moderate',
+    });
+  }
+
+  // Tooth Decay / Cavity
+  const hasDecay = profile.toothDecay || concerns.some((c) => c.type === 'tooth_decay_cavity');
+  if (hasDecay) {
+    riskScore += 22;
+    findings.push({
+      title: 'Dental Caries / Cavity Formation',
+      description: 'Reported cavity or visible discoloration in tooth enamel requires prompt restorative intervention to prevent pulpal necrosis.',
+      impact: 'moderate',
+    });
+  }
+
+  // Bad Breath / Halitosis
+  const hasBadBreath = profile.badBreath || concerns.some((c) => c.type === 'bad_breath_halitosis');
+  if (hasBadBreath) {
+    riskScore += 8;
+    findings.push({
+      title: 'Chronic Halitosis / Oral Biofilm',
+      description: 'Persistent oral odor may stem from bacterial coating on the tongue, periodontal pockets, or xerostomia.',
+      impact: 'benign',
+    });
+  }
+
+  // Oral / Facial Swelling
+  const hasOralSwelling = profile.oralSwelling || concerns.some((c) => c.type === 'oral_swelling');
+  if (hasOralSwelling) {
+    riskScore += 35;
+    findings.push({
+      title: 'Oral Soft Tissue Swelling / Suspected Abscess',
+      description: 'Localized swelling in the gums or cheek may indicate an acute periapical or periodontal abscess requiring urgent in-person drainage and treatment.',
+      impact: 'flag',
+    });
+  }
+
+  // Jaw / Facial Pain (TMJ)
+  const hasJawPain = profile.jawPain || concerns.some((c) => c.type === 'jaw_facial_pain');
+  if (hasJawPain) {
+    riskScore += 12;
+    findings.push({
+      title: 'Temporomandibular Joint / Masticatory Strain',
+      description: 'Jaw pain, clicking, or stiffness upon opening may indicate TMJ dysfunction or nocturnal bruxism.',
+      impact: 'moderate',
+    });
+  }
+
+  // 3. Lesion / Ulcer & Duration Check (Mucosal Risk)
+  if (profile.hasLesionOrUlcer === true || concerns.some((c) => c.type === 'lesion_ulcer')) {
     if (profile.durationOverTwoWeeks === true) {
       riskScore += 40;
       findings.push({
@@ -3027,7 +3330,6 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
         impact: 'moderate',
       });
     } else {
-      // duration is unknown or unverified
       riskScore += 20;
       findings.push({
         title: 'Oral Sore or Ulcer (Duration Uncertain / Unverified)',
@@ -3039,7 +3341,7 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
     protective.push('No active oral ulcers, sores, or indurated lesions reported.');
   }
 
-  // 2. Mucosal Color Changes (Leukoplakia / Erythroplakia)
+  // 4. Mucosal Color Changes (Leukoplakia / Erythroplakia)
   if (profile.colorChanges === 'red' || profile.colorChanges === 'mixed') {
     riskScore += 35;
     findings.push({
@@ -3058,7 +3360,7 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
     protective.push('Absence of suspicious velvet-red or adherent white mucosal plaques.');
   }
 
-  // 3. Structural & Functional Red Flags
+  // 5. Structural & Functional Red Flags
   if (profile.reducedMouthOpening) {
     riskScore += 30;
     findings.push({
@@ -3102,21 +3404,12 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
       description: 'Contact or spontaneous bleeding directly from an oral lesion or ulcer requires evaluation to assess mucosal fragility.',
       impact: 'flag',
     });
-  } else if (profile.unexplainedBleeding) {
+  } else if (profile.unexplainedBleeding && !hasGumBleeding) {
     riskScore += 20;
     findings.push({
       title: 'Unexplained Oral Bleeding',
       description: 'Spontaneous or minimal-touch bleeding from soft tissues requires evaluation to exclude active mucosal erosion.',
       impact: 'flag',
-    });
-  }
-
-  if (profile.gumBleeding === true) {
-    riskScore += 8;
-    findings.push({
-      title: 'Gingival Bleeding (when Brushing)',
-      description: 'Bleeding localized to the gums during mechanical brushing commonly reflects localized gingival inflammation (gingivitis/periodontitis), distinct from ulcer hemorrhage.',
-      impact: 'moderate',
     });
   }
 
@@ -3138,7 +3431,7 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
     });
   }
 
-  // 4. Carcinogenic Habits & Exposures
+  // 6. Carcinogenic Habits & Exposures
   if (profile.tobaccoSmokeless && profile.tobaccoSmokeless !== 'none') {
     riskScore += 30;
     findings.push({
@@ -3248,10 +3541,12 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
 
   // Emergency safety override
   if (profile.emergencyFlagTriggered) {
-    riskScore = Math.max(riskScore, 65);
+    riskScore = Math.max(riskScore, 75);
   }
 
-  // Determine Screening Concern Level according to Requirement 12
+  // 7. Calculate Care Level & Recommended Professional
+  let careLevel: CareLevel = 'Routine';
+  let recommendedProfessional: RecommendedProfessional = 'General Dentist';
   let screeningConcern: ScreeningConcernLevel = 'LOW SCREENING CONCERN';
   let level: RiskLevel = 'low';
   let recommendation = '';
@@ -3260,131 +3555,136 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
   const isHindi = profile.detectedLanguage === 'hi';
   const isMarathi = profile.detectedLanguage === 'mr';
 
-  if (
-    profile.emergencyFlagTriggered ||
+  if (profile.emergencyFlagTriggered) {
+    careLevel = 'Emergency';
+    recommendedProfessional = 'Emergency Department';
+    screeningConcern = 'HIGH SCREENING CONCERN';
+    level = 'high';
+    suggestedTimeframe = isHindi ? 'तत्काल / 24 घंटे के भीतर' : isMarathi ? 'तातडीने / २४ तासांच्या आत' : 'Immediate / Within 24 hours';
+    recommendation = isHindi
+      ? 'तत्काल चिकित्सकीय सहायता की आवश्यकता: सांस लेने या निगलने में गंभीर समस्या अथवा तीव्र रक्तस्त्राव। कृपया तुरंत आपातकालीन अस्पताल जाएं।'
+      : isMarathi
+      ? 'तातडीची वैद्यकीय मदत आवश्यक: श्वास घेण्यास किंवा गिळण्यास गंभीर अडचण. कृपया त्वरित जवळच्या आपत्कालीन रुग्णालयात जा.'
+      : 'EMERGENCY MEDICAL ATTENTION REQUIRED: Severe airway compromise, rapid swelling, or uncontrollable bleeding. Proceed to an emergency department immediately.';
+  } else if (hasOralSwelling || (hasToothPain && profile.pain)) {
+    careLevel = 'Urgent';
+    recommendedProfessional = 'General Dentist';
+    screeningConcern = 'MODERATE SCREENING CONCERN';
+    level = 'medium';
+    suggestedTimeframe = isHindi ? '24 से 48 घंटे के भीतर' : isMarathi ? '२४ ते ४८ तासांच्या आत' : 'Within 24 to 48 hours';
+    recommendation = isHindi
+      ? 'शीघ्र दंत परीक्षण आवश्यक: दांत में तेज दर्द या मसूड़े/गाल में सूजन का तुरंत दंत चिकित्सक से निदान व उपचार कराएं।'
+      : isMarathi
+      ? 'त्वरित दंत तपासणी आवश्यक: दातात तीव्र वेदना किंवा सूज यासाठी त्वरित दंतवैद्यांकडून उपचार घ्या.'
+      : 'URGENT DENTAL EVALUATION RECOMMENDED: Acute toothache or soft tissue swelling requires prompt clinical and radiographic evaluation to treat possible abscess or infection.';
+  } else if (
     riskScore >= 45 ||
     (profile.durationOverTwoWeeks && (profile.hasLesionOrUlcer || profile.colorChanges === 'red' || profile.reducedMouthOpening || profile.neckLumpOrSwelling))
   ) {
+    careLevel = 'Prompt evaluation';
+    recommendedProfessional = profile.neckLumpOrSwelling || profile.persistentHoarseness ? 'ENT Specialist' : 'Oral & Maxillofacial Specialist';
     screeningConcern = 'HIGH SCREENING CONCERN';
     level = 'high';
-    if (isHindi) {
-      recommendation = profile.emergencyFlagTriggered
-        ? 'तत्काल चिकित्सकीय सहायता की आवश्यकता: आपके बताए गए लक्षणों में सांस लेने या निगलने में संभावित गंभीर समस्या शामिल है। कृपया तुरंत किसी आपातकालीन अस्पताल या चिकित्सक से व्यक्तिगत जाँच कराएं।'
-        : 'शीघ्र विशेषज्ञ चिकित्सकीय जाँच की सलाह: आपके विवरण में लगातार बने रहने वाले ओरल बदलाव या मुख्य नैदानिक जोखिम कारक शामिल हैं। कृपया किसी ओरल सर्जन या डेंटिस्ट से व्यक्तिगत जाँच के लिए परामर्श लें।';
-      suggestedTimeframe = profile.emergencyFlagTriggered ? 'तत्काल / 24 घंटे के भीतर' : '7 से 14 दिनों के भीतर';
-    } else if (isMarathi) {
-      recommendation = profile.emergencyFlagTriggered
-        ? 'तातडीची वैद्यकीय मदत आवश्यक: आपल्या लक्षणांमध्ये श्वास घेण्यास किंवा गिळण्यास अडचण समाविष्ट आहे. कृपया त्वरित जवळच्या रुग्णालयात प्रत्यक्ष तपासणी करून घ्या.'
-        : 'तज्ज्ञ डॉक्टरांकडून तातडीने तपासणीचा सल्ला: आपल्या लक्षणांमध्ये २ आठवड्यांपेक्षा जास्त काळ टिकणारे बदल किंवा धोक्याचे घटक आहेत. कृपया दंतवैद्य किंवा ईएनटी तज्ज्ञांकडून तपासणी करून घ्या.';
-      suggestedTimeframe = profile.emergencyFlagTriggered ? 'तातडीने / २४ तासांच्या आत' : '७ ते १४ दिवसांच्या आत';
-    } else {
-      recommendation = profile.emergencyFlagTriggered
-        ? 'URGENT MEDICAL ATTENTION RECOMMENDED: Your reported symptoms include potentially urgent airway or swallowing difficulty. Please seek immediate in-person evaluation from an emergency hospital or healthcare provider.'
-        : 'PROMPT PROFESSIONAL EVALUATION RECOMMENDED: Your responses include persistent oral changes or key clinical risk factors. Please schedule an in-person visual and tactile examination with an oral & maxillofacial specialist or dentist.';
-      suggestedTimeframe = profile.emergencyFlagTriggered ? 'Immediate / Within 24 hours' : 'Within 7 to 14 days';
-    }
+    suggestedTimeframe = isHindi ? '7 से 14 दिनों के भीतर' : isMarathi ? '७ ते १४ दिवसांच्या आत' : 'Within 7 to 14 days';
+    recommendation = isHindi
+      ? 'विशेषज्ञ चिकित्सकीय जाँच की सलाह: 2 सप्ताह से अधिक समय से बने रहने वाले बदलाव या प्रमुख जोखिम कारकों के लिए ओरल सर्जन या ईएनटी विशेषज्ञ से परामर्श लें।'
+      : isMarathi
+      ? 'तज्ज्ञ डॉक्टरांकडून तपासणीचा सल्ला: २ आठवड्यांपेक्षा जास्त काळ टिकणारे बदल किंवा धोक्याच्या घटकांसाठी ओरल सर्जन किंवा ईएनटी तज्ज्ञांकडून तपासणी करून घ्या.'
+      : 'PROMPT PROFESSIONAL EVALUATION RECOMMENDED: Persistent mucosal changes (> 14 days) or major clinical risk indicators warrant in-person examination by an Oral Specialist or ENT.';
   } else if (
-    riskScore >= 20 ||
+    hasGumBleeding ||
+    hasSensitivity ||
+    hasDecay ||
+    hasBadBreath ||
+    hasJawPain ||
     profile.hasLesionOrUlcer ||
     profile.colorChanges === 'white' ||
     (profile.tobaccoSmokeless && profile.tobaccoSmokeless !== 'none') ||
     (profile.tobaccoSmoked && profile.tobaccoSmoked !== 'none')
   ) {
+    careLevel = 'Needs dental evaluation';
+    recommendedProfessional = hasGumBleeding && !hasDecay ? 'Periodontist' : 'General Dentist';
     screeningConcern = 'MODERATE SCREENING CONCERN';
     level = 'medium';
-    if (isHindi) {
-      recommendation = 'मध्यम स्क्रीनिंग संकेत: मुँह के ऊतकों में उल्लेखनीय बदलाव या तंबाकू/सुपारी के उपयोग की जानकारी दी गई है। यदि कोई छाला या पैच 10-14 दिनों से अधिक बना रहे या पूरी तरह ठीक न हो, तो किसी दंत चिकित्सक से व्यक्तिगत जाँच कराएं।';
-      suggestedTimeframe = '2 से 3 सप्ताह के भीतर';
-    } else if (isMarathi) {
-      recommendation = 'मध्यम जोखीम संकेत: तोंडाच्या पेशींमधील बदल किंवा तंबाखू/सुपारीचे सेवन आढळले आहे. कोणताही फोड किंवा डाग १०-१४ दिवसांपेक्षा जास्त टिकल्यास दंतवैद्यांकडून तपासणी करून घ्या.';
-      suggestedTimeframe = '२ ते ३ आठवड्यांच्या आत';
-    } else {
-      recommendation =
-        'MODERATE SCREENING INDICATION: Notable oral mucosal factors or tobacco/areca exposures were reported. If any sore or patch has lasted over 10-14 days or does not heal completely, have it evaluated in person by a dental professional.';
-      suggestedTimeframe = 'Within 2 to 3 weeks';
-    }
+    suggestedTimeframe = isHindi ? '2 से 3 सप्ताह के भीतर' : isMarathi ? '२ ते ३ आठवड्यांच्या आत' : 'Within 2 to 3 weeks';
+    recommendation = isHindi
+      ? 'दंत परीक्षण की सलाह: मसूड़ों से खून आना, दांत में संवेदनशीलता या तंबाकू के उपयोग के लिए दंत चिकित्सक से परीक्षण व परामर्श लें।'
+      : isMarathi
+      ? 'दंत तपासणीचा सल्ला: हिरड्यांमधून रक्त येणे, संवेदनशीलता किंवा तंबाखूच्या सवयींसाठी दंतवैद्यांकडून तपासणी करून घ्या.'
+      : 'DENTAL EVALUATION RECOMMENDED: Notable oral health indicators (e.g. gingival bleeding, sensitivity, caries, or tobacco exposure) should be evaluated by a dental professional.';
   } else {
+    careLevel = 'Routine';
+    recommendedProfessional = 'General Dentist';
     screeningConcern = 'LOW SCREENING CONCERN';
     level = 'low';
-    if (isHindi) {
-      recommendation = 'कम स्क्रीनिंग संकेत: उपलब्ध जानकारी के आधार पर इस स्क्रीनिंग में कोई बड़ा चेतावनी संकेत नहीं पाया गया। यह किसी बीमारी को पूरी तरह खारिज नहीं करता। हर महीने स्वयं मुँह की जाँच करें और वर्ष में दो बार नियमित दंत परीक्षण कराएं।';
-      suggestedTimeframe = 'नियमित दंत जाँच (प्रत्येक 6 महीने में)';
-    } else if (isMarathi) {
-      recommendation = 'कमी जोखीम संकेत: दिलेल्या माहितीनुसार कोणतीही गंभीर चेतावणी लक्षणे आढळली नाहीत. दरमहा स्वतः तोंड तपासा आणि दर ६ महिन्यांनी नियमित दंत तपासणी करा.';
-      suggestedTimeframe = 'नियमित दंत तपासणी (दर ६ महिन्यांनी)';
-    } else {
-      recommendation =
-        'LOW SCREENING INDICATION: Based on the information provided, no major warning signs were identified in this screening. This does not rule out disease. Continue monthly oral self-checks and routine biannual dental examinations.';
-      suggestedTimeframe = 'Routine dental checkup (every 6 months)';
-    }
+    suggestedTimeframe = isHindi ? 'नियमित दंत जाँच (प्रत्येक 6 महीने में)' : isMarathi ? 'नियमित दंत तपासणी (दर ६ महिन्यांनी)' : 'Routine dental checkup (every 6 months)';
+    recommendation = isHindi
+      ? 'कम स्क्रीनिंग संकेत: कोई तीव्र चेतावनी लक्षण नहीं मिला। हर 6 महीने में नियमित दंत परीक्षण और दैनिक मुख स्वच्छता बनाए रखें।'
+      : isMarathi
+      ? 'कमी जोखीम संकेत: कोणतीही गंभीर लक्षणे आढळली नाहीत. दर ६ महिन्यांनी नियमित दंत तपासणी आणि मुख स्वच्छता राखा.'
+      : 'ROUTINE PREVENTIVE CARE: No acute red flags identified. Maintain good oral hygiene, monthly self-checks, and biannual dental prophylaxis.';
   }
 
   if (findings.length === 0) {
     findings.push({
-      title: isHindi ? 'कोई तीव्र म्यूकोसल लक्षण नहीं पाए गए' : isMarathi ? 'कोणतीही तीव्र लक्षणे आढळली नाहीत' : 'No Acute Mucosal Symptoms Reported',
-      description: isHindi ? 'आपके द्वारा दिए गए उत्तरों में लगातार बने रहने वाले छाले, पैच या निगलने में कठिनाई नहीं बताई गई है।' : isMarathi ? 'आपल्या उत्तरांनुसार सतत राहणारे फोड, डाग किंवा गिळण्यास त्रास नाही.' : 'Your self-reported answers indicate no persistent ulcers, patches, or swallowing difficulties.',
+      title: isHindi ? 'कोई तीव्र म्यूकोसल लक्षण नहीं पाए गए' : isMarathi ? 'कोणतीही तीव्र लक्षणे आढळली नाहीत' : 'No Acute Symptoms Reported',
+      description: isHindi ? 'आपके उत्तरों में लगातार बने रहने वाले छाले, मसूड़ों से रक्तस्त्राव या दांत में दर्द नहीं बताया गया है।' : isMarathi ? 'आपल्या उत्तरांनुसार सतत राहणारे फोड, हिरड्यांमधून रक्त किंवा दातदुखी नाही.' : 'Your self-reported answers indicate no active ulcers, bleeding gums, or acute tooth pain.',
       impact: 'benign',
     });
   }
 
   // Construct Personalized Plain-Language Explanation
   const userFactSnippets: string[] = [];
+  if (hasGumBleeding) userFactSnippets.push(isHindi ? 'मसूड़ों से खून आना' : isMarathi ? 'हिरड्यांमधून रक्त येणे' : 'bleeding gums when brushing');
+  if (hasToothPain) userFactSnippets.push(isHindi ? 'दांत में दर्द' : isMarathi ? 'दात दुखणे' : 'toothache/dental pain');
+  if (hasSensitivity) userFactSnippets.push(isHindi ? 'ठंडे/गर्म की संवेदनशीलता' : isMarathi ? 'थंड/गरम झणझणाट' : 'tooth sensitivity');
+  if (hasDecay) userFactSnippets.push(isHindi ? 'दांत में कीड़ा/सड़न' : isMarathi ? 'दातात कीड' : 'possible tooth decay/cavity');
+  if (hasOralSwelling) userFactSnippets.push(isHindi ? 'मुँह में सूजन' : isMarathi ? 'तोंडात सूज' : 'oral soft tissue swelling');
+  if (hasJawPain) userFactSnippets.push(isHindi ? 'जबड़े में दर्द' : isMarathi ? 'जबड्यात वेदना' : 'jaw/TMJ pain');
   if (profile.hasLesionOrUlcer === true) {
     if (profile.durationOverTwoWeeks === true) {
-      const durationLabel = profile.duration === 'two_to_four_weeks'
-        ? (isHindi ? '2 से 4 सप्ताह' : isMarathi ? '२ ते ४ आठवडे' : '2 to 4 weeks')
-        : profile.duration === 'more_than_one_month'
-        ? (isHindi ? '1 महीने से अधिक' : isMarathi ? '१ महिन्यापेक्षा जास्त' : 'more than 1 month')
-        : (isHindi ? '2 सप्ताह से अधिक' : isMarathi ? '२ आठवड्यांपेक्षा जास्त' : 'over 2 weeks');
-      userFactSnippets.push(isHindi ? `मुँह का छाला (ulcer) जो ${durationLabel} से बना हुआ है` : isMarathi ? `तोंडातील फोड/अल्सर जे ${durationLabel} पासून आहे` : `a mouth sore/ulcer persisting for ${durationLabel}`);
-    } else if (profile.durationOverTwoWeeks === false) {
-      userFactSnippets.push(isHindi ? 'हाल ही का मुँह का छाला (< 2 सप्ताह)' : isMarathi ? 'नुकताच झालेला तोंडातील फोड (< २ आठवडे)' : 'a recent mouth ulcer (< 2 weeks)');
+      userFactSnippets.push(isHindi ? 'मुँह का छाला जो 2 सप्ताह से अधिक से है' : isMarathi ? 'तोंडातील फोड जे २ आठवड्यांपेक्षा जास्त आहे' : 'a mouth sore/ulcer persisting > 2 weeks');
     } else {
-      userFactSnippets.push(isHindi ? 'मुँह का छाला (अवधि अनिश्चित / अज्ञात)' : isMarathi ? 'तोंडातील फोड (कालावधी अनिश्चित)' : 'a mouth ulcer (duration uncertain / unverified)');
+      userFactSnippets.push(isHindi ? 'हाल ही का मुँह का छाला' : isMarathi ? 'नुकताच झालेला तोंडातील फोड' : 'a recent mouth sore/ulcer');
     }
   }
   if (profile.primarySymptomLocation) {
-    userFactSnippets.push(isHindi ? `${profile.primarySymptomLocation} पर स्थिति` : isMarathi ? `${profile.primarySymptomLocation} येथे` : `located at ${profile.primarySymptomLocation}`);
-  }
-  if (profile.mouthPainOrBurning) {
-    userFactSnippets.push(isHindi ? 'तीखा खाने पर दर्द या जलन' : isMarathi ? 'तिखट खाताना जळजळ किंवा वेदना' : 'pain or burning sensation (especially with spicy food)');
-  }
-  if (profile.colorChanges && profile.colorChanges !== 'none') {
-    userFactSnippets.push(isHindi ? `${profile.colorChanges} रंग का म्यूकोसल पैच` : isMarathi ? `${profile.colorChanges} रंगाचा डाग (patch)` : `a ${profile.colorChanges} mucosal tissue patch`);
-  }
-  if (profile.unexplainedBleeding) {
-    userFactSnippets.push(isHindi ? 'अकारण खून आना' : isMarathi ? 'रक्तस्त्राव होणे' : 'unexplained oral bleeding');
-  }
-  if (profile.numbnessInMouth) {
-    userFactSnippets.push(isHindi ? 'मुँह में सुन्नपन' : isMarathi ? 'तोंडात बधीरपणा' : 'numbness or paresthesia in oral tissues');
-  }
-  if (profile.reducedMouthOpening) {
-    userFactSnippets.push(isHindi ? 'मुँह पूरा खोलने में कठिनाई (trismus)' : isMarathi ? 'तोंड उघडण्यास त्रास (trismus)' : 'difficulty opening mouth fully (trismus)');
+    userFactSnippets.push(isHindi ? `${profile.primarySymptomLocation} पर स्थिति` : isMarathi ? `${profile.primarySymptomLocation} येथे` : `at ${profile.primarySymptomLocation}`);
   }
   if (profile.tobaccoSmokeless && profile.tobaccoSmokeless !== 'none') {
-    userFactSnippets.push(isHindi ? `${profile.tobaccoSmokeless} (गुटखा/तंबाकू) का सेवन` : isMarathi ? `${profile.tobaccoSmokeless} (गुटखा/तंबाखू) चे सेवन` : `use of ${profile.tobaccoSmokeless}`);
+    userFactSnippets.push(isHindi ? `${profile.tobaccoSmokeless} का सेवन` : isMarathi ? `${profile.tobaccoSmokeless} चे सेवन` : `use of ${profile.tobaccoSmokeless}`);
   }
   if (profile.tobaccoSmoked && profile.tobaccoSmoked !== 'none') {
-    const freq = profile.tobaccoFrequency ? ` (${profile.tobaccoFrequency})` : '';
-    userFactSnippets.push(isHindi ? `${profile.tobaccoSmoked}${freq} (बीड़ी/सिगरेट) पीना` : isMarathi ? `${profile.tobaccoSmoked}${freq} (विडी/सिगारेट) ओढणे` : `smoking ${profile.tobaccoSmoked}${freq}`);
-  }
-  if (profile.alcoholIntake === 'heavy' || profile.alcoholUse === 'heavy') {
-    userFactSnippets.push(isHindi ? 'नियमित/अधिक शराब का सेवन' : isMarathi ? 'नियमित/जास्त मद्यपान' : 'regular / heavy alcohol intake');
-  } else if (profile.alcoholIntake === 'moderate' || profile.alcoholUse === 'occasional') {
-    userFactSnippets.push(isHindi ? 'कभी-कभार शराब का सेवन' : isMarathi ? 'कधीतरी मद्यपान' : 'occasional / moderate alcohol intake');
+    userFactSnippets.push(isHindi ? `धूम्रपान (${profile.tobaccoSmoked})` : isMarathi ? `धूम्रपान (${profile.tobaccoSmoked})` : `smoking ${profile.tobaccoSmoked}`);
   }
 
   const summaryOfFindings = userFactSnippets.length > 0
     ? (isHindi
-        ? `आपने बताया: ${userFactSnippets.join(', ')}। ये विशिष्ट विवरण आपके स्क्रीनिंग संकेत का मुख्य आधार हैं।`
+        ? `आपने बताया: ${userFactSnippets.join(', ')}। ये विशिष्ट विवरण आपके मूल्यांकन का आधार हैं।`
         : isMarathi
-        ? `आपण नमूद केले: ${userFactSnippets.join(', ')}. हे तपशील आपल्या स्क्रीनिंग निष्कर्षांचा मुख्य आधार आहेत.`
-        : `You mentioned ${userFactSnippets.join(', ')}. These specific details form the basis of your ${screeningConcern.toLowerCase()} indication.`)
+        ? `आपण नमूद केले: ${userFactSnippets.join(', ')}. हे तपशील आपल्या निष्कर्षांचा मुख्य आधार आहेत.`
+        : `You reported ${userFactSnippets.join(', ')}. These details form the basis of your ${careLevel.toLowerCase()} triage guidance.`)
     : (isHindi
-        ? 'आपने मुँह में किसी सक्रिय घाव, रंग परिवर्तन या तंबाकू के उपयोग की सूचना नहीं दी है।'
+        ? 'आपने मुँह में किसी सक्रिय घाव, रक्तस्त्राव या दर्द की सूचना नहीं दी है।'
         : isMarathi
-        ? 'आपण तोंडात कोणताही सक्रिय फोड, डाग किंवा तंबाखू सेवनाची नोंद केलेली नाही.'
-        : 'You reported no active oral sores, discoloration, or tobacco exposure.');
+        ? 'आपण तोंडात कोणताही सक्रिय फोड, रक्तस्त्राव किंवा वेदनेची नोंद केलेली नाही.'
+        : 'You reported no active oral sores, bleeding, or dental pain.');
+
+  // Recommended Next Steps & Questions for the Doctor
+  const nextSteps: string[] = [
+    `Schedule an appointment with a ${recommendedProfessional} (${suggestedTimeframe}).`,
+    'Avoid self-medicating with caustic topical remedies or rubbing tobacco/pain balm on soft tissues.',
+    hasGumBleeding ? 'Use a soft-bristled toothbrush and gentle circular motions; do not skip brushing due to bleeding.' : 'Maintain gentle, thorough twice-daily tooth brushing and daily flossing.',
+    profile.tobaccoSmokeless && profile.tobaccoSmokeless !== 'none' ? 'Initiate tobacco reduction or cessation; view our personalized Cessation Plan.' : 'Continue avoiding tobacco and betel nut products.',
+    'If new symptoms like difficulty swallowing, severe jaw swelling, or rapid worsening occur, seek immediate emergency care.',
+  ];
+
+  const patientQuestions: string[] = [
+    hasGumBleeding ? 'Are my bleeding gums caused by plaque/tartar buildup, or is there bone loss (periodontitis)?' : 'Do you recommend professional dental cleaning or scaling at this visit?',
+    profile.hasLesionOrUlcer ? 'Does this ulcer/sore show signs of irritation from a sharp tooth, or should it be biopsied?' : 'Did you notice any unusual mucosal patches or suspicious tissue in my mouth?',
+    hasToothPain || hasSensitivity ? 'Is there any hidden cavity between my teeth, and do I need a digital dental X-ray?' : 'Are my teeth showing signs of enamel wear or nighttime grinding?',
+    'What preventive dental hygiene routine do you recommend for my mouth?',
+  ];
 
   // Helper for confirmed vs unassessed status in clinical summary
   const getConfirmedFieldDisplay = (val: boolean | undefined, positiveLabel: string, negativeLabel: string) => {
@@ -3393,71 +3693,73 @@ export function computeRiskAssessment(profile: PatientProfile): AssessmentResult
     return 'Not assessed / Not reported';
   };
 
-  // Build Doctor Summary Text (Requirement 15 & Master Refinement V2.1)
-  const doctorSummaryText = `ORALGUARD AI — CLINICAL PATIENT SCREENING SUMMARY
+  // Build Structured Clinical Handoff (Doctor Summary)
+  const doctorSummaryText = `ORALGUARD AI — CLINICAL PATIENT SCREENING & CARE HANDOFF
 ==================================================
-Generated by OralGuard AI screening prototype for clinical reference only. Not a definitive diagnosis.
+Generated by OralGuard AI screening prototype for clinical handoff reference only. Not a definitive diagnosis.
 Date/Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
 
 1. PATIENT PROFILE:
 - Age: ${profile.age || 'Not specified (Adult)'}
 - Sex: ${profile.gender || 'Not specified'}
-- Language Used: ${profile.detectedLanguage === 'hi' ? 'Hindi (हिन्दी)' : profile.detectedLanguage === 'mr' ? 'Marathi (मराठी)' : 'English'}
+- Preferred Language: ${profile.detectedLanguage === 'hi' ? 'Hindi (हिन्दी)' : profile.detectedLanguage === 'mr' ? 'Marathi (मराठी)' : 'English'}
 
-2. CHIEF COMPLAINT & ANATOMICAL LOCALIZATION:
-- Chief Complaint: ${profile.mainConcern || 'Oral mucosal risk evaluation'}
-- Primary Anatomical Location: ${profile.primarySymptomLocation || (profile.affectedRegions && profile.affectedRegions.length > 0 ? profile.affectedRegions.join(', ') : 'Not localized / diffuse')}
-${profile.mouthMapLocations && profile.mouthMapLocations.length > 0 ? `- Confirmed Mouth Map Locations (${profile.mouthMapLocations.length}): ${profile.mouthMapLocations.map(l => `${l.area} [${l.id}]`).join(', ')}\n` : ''}${profile.photoDocumentation && profile.photoDocumentation.length > 0 ? `- Documented Oral Photos: ${profile.photoDocumentation.length} photo(s) attached for clinical reference\n` : ''}${profile.symptomProgress && profile.symptomProgress.length > 0 ? `- Longitudinal Symptom Progress Entries: ${profile.symptomProgress.length} entry/entries recorded\n` : ''}- Mouth Sore / Ulcer: ${getConfirmedFieldDisplay(profile.hasLesionOrUlcer, 'Active sore or ulcer reported', 'Confirmed None (No sores/ulcers)')}
-- Mucosal Discoloration: ${profile.colorChanges && profile.colorChanges !== 'none' ? `${profile.colorChanges.toUpperCase()} patch` : profile.colorChanges === 'none' ? 'Confirmed None (No discoloration)' : 'Not assessed / Not reported'}
-- Thickening or Lump: ${getConfirmedFieldDisplay(profile.thickeningOrLump, 'Palpable lump or thickened mucosal area', 'Confirmed None (No lump/thickening)')}
+2. CHIEF COMPLAINTS & IDENTIFIED CLINICAL CONCERNS:
+- Primary Complaint: ${profile.mainConcern || 'Comprehensive oral health screening'}
+- Primary Anatomical Site: ${profile.primarySymptomLocation || (profile.affectedRegions && profile.affectedRegions.length > 0 ? profile.affectedRegions.join(', ') : 'Oral cavity (general)')}
+${concerns.map((c, i) => `  [Concern ${i + 1}] ${c.title || c.type.replace(/_/g, ' ').toUpperCase()}: ${c.description}${c.locations && c.locations.length > 0 ? ` (Locations: ${c.locations.join(', ')})` : ''}`).join('\n')}
+${profile.mouthMapLocations && profile.mouthMapLocations.length > 0 ? `- Confirmed Mouth Map Sites (${profile.mouthMapLocations.length}): ${profile.mouthMapLocations.map(l => `${l.area} [${l.id}]`).join(', ')}\n` : ''}${profile.photoDocumentation && profile.photoDocumentation.length > 0 ? `- Documented Oral Photos: ${profile.photoDocumentation.length} photo(s) attached for reference\n` : ''}${profile.symptomProgress && profile.symptomProgress.length > 0 ? `- Longitudinal Progress Entries: ${profile.symptomProgress.length} entry/entries recorded\n` : ''}
+3. SYMPTOMS & CLINICAL INDICATORS:
+- Gingival Bleeding: ${getConfirmedFieldDisplay(profile.gumBleeding, 'Bleeding reported (e.g. during brushing)', 'No gum bleeding')}
+- Tooth Pain / Ache: ${getConfirmedFieldDisplay(profile.toothPain, 'Odontogenic pain reported', 'No toothache reported')}
+- Dentine Hypersensitivity: ${getConfirmedFieldDisplay(profile.toothSensitivity, 'Sensitivity to cold/hot/sweets', 'No sensitivity')}
+- Possible Caries / Cavity: ${getConfirmedFieldDisplay(profile.toothDecay, 'Suspected decay or tooth hole', 'No cavity reported')}
+- Soft Tissue Swelling: ${getConfirmedFieldDisplay(profile.oralSwelling, 'Oral swelling / abscess suspected', 'No oral swelling')}
+- Oral Sore / Ulcer: ${getConfirmedFieldDisplay(profile.hasLesionOrUlcer, 'Active sore or ulcer reported', 'No active ulcer')}
+- Mucosal Patch / Discoloration: ${profile.colorChanges && profile.colorChanges !== 'none' ? `${profile.colorChanges.toUpperCase()} mucosal patch` : profile.colorChanges === 'none' ? 'Confirmed None (No discoloration)' : 'Not assessed'}
+- Palpable Lump / Thickening: ${getConfirmedFieldDisplay(profile.thickeningOrLump, 'Submucosal firmness or lump', 'No lump/thickening')}
+- Sensation (Pain/Burning): ${getConfirmedFieldDisplay(profile.mouthPainOrBurning, 'Pain or burning with spicy food/eating', 'No pain/burning')}
+- Mouth Opening (Trismus): ${getConfirmedFieldDisplay(profile.reducedMouthOpening, 'RESTRICTED mouth opening (OSMF/TMJ suspected)', 'Normal mouth opening')}
+- Swallowing Function: ${getConfirmedFieldDisplay(profile.difficultySwallowing, 'Difficulty swallowing (Dysphagia)', 'Normal swallowing')}
+- Regional Neck Nodes: ${getConfirmedFieldDisplay(profile.neckLumpOrSwelling, 'Palpable neck swelling reported', 'No neck mass reported')}
 
-3. DURATION & CHRONICITY:
-- Duration Category: ${profile.duration && profile.duration !== 'unknown' ? profile.duration.replace(/_/g, ' ').toUpperCase() : profile.durationOverTwoWeeks === true ? 'MORE THAN 2 WEEKS' : profile.durationOverTwoWeeks === false ? 'LESS THAN 2 WEEKS' : profile.duration === 'unknown' ? 'UNKNOWN (Patient uncertain)' : 'Not assessed / Not reported'}
-- Persisting > 14 Days: ${profile.durationOverTwoWeeks === true ? 'YES (High Clinical Significance — Persistent lesion)' : profile.durationOverTwoWeeks === false ? 'No / Recent onset (< 14 days)' : profile.duration === 'unknown' ? 'UNKNOWN (Patient uncertain)' : 'Not assessed / Not reported'}
-- Progression: ${profile.progression ? profile.progression.toUpperCase() : 'Not reported'}
+4. DURATION & CHRONICITY:
+- Duration: ${profile.duration && profile.duration !== 'unknown' ? profile.duration.replace(/_/g, ' ').toUpperCase() : profile.durationOverTwoWeeks === true ? 'MORE THAN 2 WEEKS' : profile.durationOverTwoWeeks === false ? 'LESS THAN 2 WEEKS' : 'Not specified / Unknown'}
+- Persisting > 14 Days: ${profile.durationOverTwoWeeks === true ? 'YES (High Clinical Significance)' : profile.durationOverTwoWeeks === false ? 'No (< 14 days)' : 'Unknown'}
 
-4. ASSOCIATED SYMPTOMS & WARNING SIGNS:
-- Bleeding from Lesion: ${getConfirmedFieldDisplay(profile.unexplainedBleeding, 'Unexplained bleeding reported', 'Confirmed None (No bleeding)')}
-- Oral Numbness / Paresthesia: ${getConfirmedFieldDisplay(profile.numbnessInMouth, 'Paresthesia/numbness present', 'Confirmed None (Normal sensation)')}
-- Mouth Pain / Burning Sensation: ${getConfirmedFieldDisplay(profile.mouthPainOrBurning, 'Present (Pain or burning, especially with spicy food)', 'Confirmed None (No pain/burning)')}
-- Mouth Opening (Trismus): ${getConfirmedFieldDisplay(profile.reducedMouthOpening, 'RESTRICTED mouth opening (OSMF suspected)', 'Confirmed Normal mouth opening')}
-- Swallowing Discomfort (Dysphagia): ${getConfirmedFieldDisplay(profile.difficultySwallowing, 'Difficulty swallowing reported', 'Confirmed None (Normal swallowing)')}
-- Neck Lump or Swelling: ${getConfirmedFieldDisplay(profile.neckLumpOrSwelling, 'Palpable neck swelling (Regional lymph node evaluation needed)', 'Confirmed None (No neck swelling)')}
-- Persistent Hoarseness: ${getConfirmedFieldDisplay(profile.persistentHoarseness, 'Voice change / hoarseness > 2 weeks', 'Confirmed None (Normal voice)')}
+5. HABITS & CHEMICAL EXPOSURES:
+- Smokeless Tobacco (Gutka / Khaini / Zarda): ${profile.tobaccoSmokeless && profile.tobaccoSmokeless !== 'none' ? `${profile.tobaccoSmokeless.toUpperCase()} (Reported)` : profile.tobaccoSmokeless === 'none' ? 'Confirmed None' : 'Not assessed'}
+- Smoked Tobacco (Bidi / Cigarettes): ${profile.tobaccoSmoked && profile.tobaccoSmoked !== 'none' ? `${profile.tobaccoSmoked.toUpperCase()}${profile.tobaccoFrequency ? ` (${profile.tobaccoFrequency})` : ''}` : profile.tobaccoSmoked === 'none' ? 'Confirmed Non-smoker' : 'Not assessed'}
+- Areca / Betel Nut (Supari / Paan): ${profile.arecaOrBetelNut && profile.arecaOrBetelNut !== 'none' ? `${profile.arecaOrBetelNut.toUpperCase()} (Reported)` : profile.arecaOrBetelNut === 'none' ? 'Confirmed None' : 'Not assessed'}
+- Alcohol Intake: ${profile.alcoholIntake === 'none' || profile.alcoholUse === 'none' ? 'Confirmed None' : profile.alcoholIntake ? `${profile.alcoholIntake.toUpperCase()}` : 'Not assessed'}
+- Mechanical Irritation: ${profile.chronicIrritation ? 'YES (Sharp tooth or ill-fitting prosthesis)' : 'No'}
 
-5. RISK FACTORS & EXPOSURES:
-- Smokeless Tobacco (Gutka / Khaini / Zarda): ${profile.tobaccoSmokeless && profile.tobaccoSmokeless !== 'none' ? `${profile.tobaccoSmokeless.toUpperCase()} (Reported)` : profile.tobaccoSmokeless === 'none' ? 'Confirmed None (Zero smokeless tobacco use)' : 'Not assessed'}
-- Smoked Tobacco (Bidi / Cigarettes): ${profile.tobaccoSmoked && profile.tobaccoSmoked !== 'none' ? `${profile.tobaccoSmoked.toUpperCase()}${profile.tobaccoFrequency ? ` (${profile.tobaccoFrequency})` : ''}` : profile.tobaccoSmoked === 'none' ? 'Confirmed Non-smoker (Zero smoked tobacco)' : 'Not assessed'}
-- Areca / Betel Nut (Supari / Paan): ${profile.arecaOrBetelNut && profile.arecaOrBetelNut !== 'none' ? `${profile.arecaOrBetelNut.toUpperCase()} (Reported)` : profile.arecaOrBetelNut === 'none' ? 'Confirmed None (Zero areca nut use)' : 'Not assessed'}
-- Alcohol Intake: ${profile.alcoholIntake === 'none' || profile.alcoholUse === 'none' ? 'Confirmed None (Zero alcohol consumption)' : profile.alcoholIntake === 'heavy' || profile.alcoholUse === 'heavy' ? 'REGULAR / HEAVY (Reported frequent alcohol intake)' : profile.alcoholIntake === 'moderate' || profile.alcoholUse === 'occasional' ? 'OCCASIONAL / MODERATE (Reported occasional alcohol intake)' : profile.alcoholIntake ? `${profile.alcoholIntake.toUpperCase()} (Reported)` : 'Not assessed'}
-- Synergistic Risk (Tobacco + Alcohol): ${profile.combinedTobaccoAlcohol ? 'YES (Multiplicative oral risk)' : 'No'}
-- Chronic Mechanical Irritation: ${profile.chronicIrritation ? 'YES (Sharp tooth or dental appliance rubbing)' : 'No'}
-
-6. SCREENING RISK INDICATION:
-- Overall Screening Concern Level: ${screeningConcern}
-- Risk Level: ${level.toUpperCase()}
-- Key Clinical Flags: ${findings.filter(f => f.impact === 'flag').map(f => f.title).join('; ') || 'No acute flags'}
-
-7. SUGGESTED CLINICAL NEXT STEPS:
-- Recommended Evaluation: ${recommendation}
+6. TRIAGE INDICATION & CLINICAL NEXT STEPS:
+- Care Level: ${careLevel.toUpperCase()}
+- Recommended Provider: ${recommendedProfessional}
 - Suggested Timeframe: ${suggestedTimeframe}
-- Suggested Specialist: Oral & Maxillofacial Surgeon, ENT Specialist, or General Dentist for direct clinical visualization, palpation, and biopsy if indicated.
+- Evaluation Recommendation: ${recommendation}
 
 ==================================================
-MANDATORY DISCLAIMER:
-Generated by OralGuard AI screening prototype for clinical reference only. Not a definitive diagnosis. Only a qualified healthcare professional can diagnose or rule out oral cancer.
+MANDATORY CLINICAL DISCLAIMER:
+This summary was generated by the OralGuard AI screening prototype for clinical handoff and educational triage only. It is not a medical diagnosis or treatment plan. A licensed dental or medical practitioner must perform an in-person visual, tactile, and radiographic examination.
 ==================================================`;
 
   return {
     riskLevel: level,
+    careLevel,
     screeningConcern,
-    confidenceNotes: 'Evaluated using clinical screening triage parameters based on duration, mucosal lesion attributes, sensory signs, and tobacco/areca exposures.',
+    recommendedProfessional,
+    concerns,
+    confidenceNotes: 'Evaluated across multi-concern oral health parameters including gingival status, dental pain, mucosal lesions, and habit history.',
     summaryOfFindings,
     keyFindings: findings,
     protectiveFactors: protective,
     recommendation,
     suggestedTimeframe,
-    disclaimer: 'OralGuard AI cannot diagnose cancer. Only a qualified healthcare professional can diagnose or rule out cancer. This is a preliminary screening result, not a diagnosis.',
+    nextSteps,
+    patientQuestions,
+    disclaimer: 'OralGuard AI provides health screening and risk-triage guidance only, not a definitive medical or dental diagnosis. Consult a qualified dentist or doctor for an in-person examination.',
     doctorSummaryText,
   };
 }

@@ -21,47 +21,55 @@ const PORT = 3000;
 
 app.use(express.json());
 
-const SYSTEM_INSTRUCTION = `You are OralGuard AI, an advanced, empathetic, generative medical AI companion and oral health specialist (built like Gemini and ChatGPT). You think on your own and provide intelligent, authentic, personalized answers to whatever question or topic the user brings up, without following rigid scripts or predefined questions.
+const SYSTEM_INSTRUCTION = `You are OralGuard AI — Conversational Oral Health Screening, Risk-Triage & Care Assistant. You are an advanced, empathetic, conversational oral health clinical AI companion (built with generative reasoning like Gemini). You evaluate OVERALL ORAL HEALTH (gum bleeding, toothaches, cold sensitivity, dental decay, oral malodor, ulcers/sores, mucosal white/red patches, swelling, jaw pain) while keeping oral-cancer-related red flags as an essential safety and triage category.
 
-CORE AI INTELLIGENCE & GENERATIVE REASONING:
-1. THINK ON YOUR OWN & ANSWER THE USER'S SPECIFIC QUESTION FIRST:
-   - When the user asks ANY question (e.g. "What causes mouth ulcers?", "What is leukoplakia?", "Does gutka cause oral cancer?", "Why does my tongue burn?", "What is the 2-week rule?", "Can stress cause sores?", "How does a biopsy work?"), THINK deeply and answer directly, thoroughly, and clearly.
-   - Do NOT ignore what the user asked. NEVER force the user into a predefined multiple-choice questionnaire or rigid form.
-   - Use clear medical explanations, formatted with clean Markdown (use bullet points, bold key terms, and concise paragraphs).
-   - If the user asks a follow-up question, clarify it thoughtfully just like ChatGPT or Gemini.
+CORE AI INTELLIGENCE & CLINICAL REASONING:
+1. THINK ON YOUR OWN & ANSWER THE USER'S SPECIFIC CONCERNS FIRST:
+   - When the user shares symptoms (e.g. "My gums bleed when I brush and I have cold tooth sensitivity", "I have a sore on my tongue for 3 weeks", "My jaw clicks and hurts"), address ALL stated symptoms with personalized clinical empathy and clarity.
+   - Do NOT force the user into a rigid single-disease questionnaire. Listen and adapt dynamically to what they share.
+   - Use clear medical explanations formatted in clean Markdown (bullet points, bold key terms, concise paragraphs).
 
-2. FLUID, DYNAMIC ORAL SCREENING & TRIAGE:
-   - If the user is describing their own symptoms (e.g. pain, sore, patch, difficulty opening mouth, habit history), listen carefully and respond with personalized clinical empathy.
-   - Explain what their symptom might indicate (e.g. benign aphthous ulcer vs. chronic trauma vs. mucosal lesion requiring inspection).
-   - If useful clinical details (like whether it has lasted more than 2 weeks, location, or habits) haven't been shared yet, you can naturally and conversationally ask for them as a caring doctor would — NOT like an automated survey.
-   - If the user already gave information, acknowledge it and NEVER ask for it again.
+2. FLUID, DYNAMIC MULTI-CONCERN ORAL SCREENING & CARE TRIAGE:
+   - Identify and track multiple oral health concerns in a single conversation.
+   - Inquire about relevant clinical details (e.g., duration, triggers, severity, swelling, bleeding) naturally without repeating information already confirmed.
+   - Direct the user to the appropriate level of care:
+     * Routine Dental Prophylaxis / Scaling (e.g., for mild gingivitis, plaque)
+     * General Dental Evaluation (e.g., for toothache, cavity, dental caries, dentine sensitivity)
+     * Periodontist / Specialist Evaluation (e.g., for chronic bleeding gums, deep pockets)
+     * Oral Medicine / Oral & Maxillofacial / ENT Evaluation (e.g., for persistent ulcer >2-3 weeks, white/red leukoplakic patch, mucosal thickening, restricted mouth opening / OSMF)
+     * Immediate Hospital Emergency Evaluation (e.g., for acute airway obstruction, rapidly spreading facial/neck swelling, inability to swallow saliva, uncontrolled bleeding)
 
-3. EMPATHY & CANCER ANXIETY MANAGEMENT:
-   - Address cancer fears directly and calmly. Over 90% of acute mouth ulcers are completely benign (aphthous stomatitis, trauma from sharp teeth, accidental cheek bites, spicy food burns, viral illness, or vitamin B12/iron deficiency).
-   - Emphasize the core clinical rule of oral medicine: Any solitary ulcer, red/white patch, or lump that persists beyond 2 to 3 weeks without healing should be evaluated in person by a dentist, oral surgeon, or ENT specialist.
-   - You cannot provide a definitive biopsy-confirmed cancer diagnosis, but you provide expert educational screening and risk guidance.
+3. MEDICAL SAFETY & NON-DIAGNOSTIC GUIDANCE:
+   - You provide non-diagnostic preliminary screening, risk stratification, and patient education.
+   - You MUST NOT definitively diagnose diseases (e.g. do NOT say "You have stage 2 oral cancer" or "You have irreversible pulpitis"). Instead use clinically prudent phrasing like "Your symptoms are consistent with dentine hypersensitivity", "This sore warrants an in-person clinical examination by a dentist or oral specialist to determine the exact cause."
+   - Never prescribe prescription medications (like antibiotics or narcotics). Suggest evidence-based supportive home hygiene (warm salt water rinses, soft brushing, desensitizing toothpaste) alongside professional consultation.
 
 4. MULTILINGUAL & CULTURAL FLUENCY:
    - Respond in the user's selected language: clear English, authentic Hindi (हिन्दी), authentic Marathi (मराठी), or natural Hinglish.
-   - Understand South Asian oral risk factors deeply: gutka, khaini, zarda, pan masala, betel quid/paan, supari (areca nut), bidi, cigarettes, and Oral Submucous Fibrosis (OSMF) with restricted mouth opening (trismus).
+   - Deeply understand South Asian oral habits: gutka, khaini, zarda, pan masala, betel quid/paan, supari (areca nut), bidi, cigarettes, and Oral Submucous Fibrosis (OSMF) with restricted mouth opening (trismus).
 
-5. VISUAL INSPECTION (MULTIMODAL):
-   - When an oral photo is provided, visually analyze the mucosal appearance, noting color (erythematous/leukoplakic), border clarity, and anatomical site, while reminding the user that clinical palpation and biopsy are required for diagnosis.
-
-6. STRUCTURED CLINICAL FACT EXTRACTION (JSON OUTPUT):
+5. STRUCTURED CLINICAL FACT EXTRACTION (JSON OUTPUT):
    - You MUST output a strictly valid JSON object with the following schema:
      {
-       "reply": "Your intelligent, generative AI response answering the user's question or symptom description in clean markdown",
+       "reply": "Your empathetic, generative AI response in clean markdown",
        "extractedFacts": {
          "hasLesionOrUlcer": "yes" | "no" | "unknown" | "not_mentioned",
          "ulcerDetails": "description if mentioned",
-         "multipleConcerns": ["sore on tongue", "bleeding gums"],
+         "gumBleeding": "yes" | "no" | "unknown" | "not_mentioned",
+         "toothPain": "yes" | "no" | "unknown" | "not_mentioned",
+         "toothSensitivity": "yes" | "no" | "unknown" | "not_mentioned",
+         "toothDecay": "yes" | "no" | "unknown" | "not_mentioned",
+         "badBreath": "yes" | "no" | "unknown" | "not_mentioned",
+         "oralSwelling": "yes" | "no" | "unknown" | "not_mentioned",
+         "jawPain": "yes" | "no" | "unknown" | "not_mentioned",
+         "dryMouth": "yes" | "no" | "unknown" | "not_mentioned",
+         "multipleConcerns": ["bleeding gums", "tooth sensitivity", "tongue ulcer"],
          "primarySymptomLocation": "anatomical location",
-         "multipleLocations": ["location 1", "location 2"],
+         "multipleLocations": ["lower gums", "upper left molar"],
          "durationCategory": "less_than_2_weeks" | "two_to_four_weeks" | "more_than_one_month" | "unknown" | "not_mentioned",
-         "durationText": "e.g. 3 weeks, 10 days",
+         "durationText": "e.g. 3 weeks, 4 days",
          "pain": "yes" | "no" | "unknown" | "not_mentioned",
-         "symptomTrigger": "e.g. spicy food, chewing",
+         "symptomTrigger": "e.g. brushing, cold water, chewing",
          "colorChanges": "none" | "white" | "red" | "mixed" | "unknown" | "not_mentioned",
          "thickeningOrLump": "yes" | "no" | "unknown" | "not_mentioned",
          "unexplainedBleeding": "yes" | "no" | "unknown" | "not_mentioned",
@@ -81,8 +89,50 @@ CORE AI INTELLIGENCE & GENERATIVE REASONING:
          "correctionDetails": "what was corrected",
          "emergencyFlag": true | false
        },
-       "quickReplies": ["Natural relevant follow-up question or response 1", "Natural relevant follow-up 2", "Natural relevant follow-up 3"]
+       "quickReplies": ["Natural relevant follow-up 1", "Natural relevant follow-up 2", "Natural relevant follow-up 3"]
      }`;
+
+function extractCleanReply(rawText: string): {
+  reply: string;
+  extractedFacts?: any;
+  quickReplies?: string[];
+  suggestedQuestions?: string[];
+  recommendedFeature?: string | null;
+} {
+  let clean = rawText.trim();
+  if (clean.startsWith('```')) {
+    clean = clean.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+  }
+  try {
+    const obj = JSON.parse(clean);
+    if (obj && typeof obj === 'object') {
+      const reply = typeof obj.reply === 'string' && obj.reply.trim() ? obj.reply.trim() : clean;
+      return {
+        reply,
+        extractedFacts: obj.extractedFacts,
+        quickReplies: Array.isArray(obj.quickReplies)
+          ? obj.quickReplies.map((q: unknown) => String(q).trim()).filter(Boolean)
+          : undefined,
+        suggestedQuestions: Array.isArray(obj.suggestedQuestions)
+          ? obj.suggestedQuestions.map((q: unknown) => String(q).trim()).filter(Boolean)
+          : undefined,
+        recommendedFeature: typeof obj.recommendedFeature === 'string' ? obj.recommendedFeature : null,
+      };
+    }
+  } catch {
+    // If strict JSON.parse fails, attempt regex extraction for "reply": "..."
+    const match = clean.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/s);
+    if (match && match[1]) {
+      try {
+        const decoded = JSON.parse(`"${match[1]}"`);
+        return { reply: decoded };
+      } catch {
+        return { reply: match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') };
+      }
+    }
+  }
+  return { reply: clean };
+}
 
 // Ask OralGuard Educational & Interactive Conversational AI API
 app.post('/api/ask-oralguard', async (req, res) => {
@@ -152,33 +202,11 @@ app.post('/api/ask-oralguard', async (req, res) => {
     });
 
     if (geminiRaw) {
-      let parsedReply = geminiRaw;
-      let parsedQuestions: string[] = [];
-      let parsedFeature: string | null = null;
-
-      try {
-        let cleanJson = geminiRaw.trim();
-        if (cleanJson.startsWith('```')) {
-          cleanJson = cleanJson.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-        }
-        const obj = JSON.parse(cleanJson);
-        if (obj && typeof obj.reply === 'string' && obj.reply.trim()) {
-          parsedReply = obj.reply.trim();
-        }
-        if (Array.isArray(obj.suggestedQuestions)) {
-          parsedQuestions = obj.suggestedQuestions.map((q: unknown) => String(q).trim()).filter(Boolean);
-        }
-        if (obj.recommendedFeature && typeof obj.recommendedFeature === 'string') {
-          parsedFeature = obj.recommendedFeature;
-        }
-      } catch {
-        parsedReply = geminiRaw;
-      }
-
+      const extracted = extractCleanReply(geminiRaw);
       return res.json({
-        reply: parsedReply,
-        suggestedQuestions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
-        recommendedFeature: parsedFeature,
+        reply: extracted.reply,
+        suggestedQuestions: extracted.suggestedQuestions && extracted.suggestedQuestions.length > 0 ? extracted.suggestedQuestions : undefined,
+        recommendedFeature: extracted.recommendedFeature,
         isEmergencyAlert: false,
         source: 'gemini',
       });
@@ -389,34 +417,18 @@ CONVERSATIONAL INTELLIGENCE DIRECTIVE:
     });
 
     if (geminiReply) {
-      let parsedReply = geminiReply;
-      let parsedQuickReplies: string[] | undefined = undefined;
+      const extracted = extractCleanReply(geminiReply);
       let parsedFacts: ExtractedClinicalFacts = { ...localFacts };
 
-      try {
-        let cleanJson = geminiReply.trim();
-        if (cleanJson.startsWith('```')) {
-          cleanJson = cleanJson.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-        }
-        const obj = JSON.parse(cleanJson);
-        if (obj && typeof obj.reply === 'string' && obj.reply.trim()) {
-          parsedReply = obj.reply.trim();
-        }
-        if (Array.isArray(obj.quickReplies) && obj.quickReplies.length > 0) {
-          parsedQuickReplies = obj.quickReplies.map((q: unknown) => String(q).trim()).filter(Boolean);
-        }
-        if (obj && obj.extractedFacts && typeof obj.extractedFacts === 'object') {
-          const validatedGeminiFacts = validateExtractedFacts(obj.extractedFacts);
-          parsedFacts = { ...localFacts, ...validatedGeminiFacts };
-        }
-      } catch {
-        parsedReply = geminiReply;
+      if (extracted.extractedFacts && typeof extracted.extractedFacts === 'object') {
+        const validatedGeminiFacts = validateExtractedFacts(extracted.extractedFacts);
+        parsedFacts = { ...localFacts, ...validatedGeminiFacts };
       }
 
       return res.json({
-        reply: parsedReply,
+        reply: extracted.reply,
         extractedFacts: parsedFacts,
-        quickReplies: parsedQuickReplies || turn.suggestedQuickReplies,
+        quickReplies: extracted.quickReplies || turn.suggestedQuickReplies,
         source: 'gemini',
       });
     }

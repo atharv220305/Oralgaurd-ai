@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Screen,
   PatientProfile,
@@ -276,185 +277,212 @@ export default function App() {
         onToggleFrame={() => setIsFrameMode(!isFrameMode)}
         syncStatus={syncStatus}
         onOpenHistory={() => setIsHistoryModalOpen(true)}
+        hasActiveAssessment={!!assessmentResult}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        {currentScreen === 'splash' && (
-          <SplashScreen onContinue={handleSplashContinue} />
-        )}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentScreen}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+            className="flex-1 flex flex-col overflow-hidden relative h-full"
+          >
+            {currentScreen === 'splash' && (
+              <SplashScreen onContinue={handleSplashContinue} />
+            )}
 
-        {currentScreen === 'welcome' && (
-          <WelcomeDisclaimerScreen
-            onAccept={handleDisclaimerAccept}
-            initialLanguage={selectedLanguage}
-          />
-        )}
+            {currentScreen === 'welcome' && (
+              <WelcomeDisclaimerScreen
+                onAccept={handleDisclaimerAccept}
+                initialLanguage={selectedLanguage}
+                onOpenHistory={() => setIsHistoryModalOpen(true)}
+                onOpenFollowUp={() => setCurrentScreen('follow_up')}
+                onOpenAwarenessHub={() => setCurrentScreen('awareness_hub')}
+                onOpenCessation={() => setCurrentScreen('cessation_support')}
+                onOpenHelplines={() => setCurrentScreen('health_helplines')}
+                onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
+              />
+            )}
 
-        {currentScreen === 'chat' && (
-          <ChatScreen
-            onCompleteScreening={handleCompleteScreening}
-            indicators={indicators}
-            setIndicators={setIndicators}
-            initialLanguage={selectedLanguage}
-            onOpenCessation={() => setCurrentScreen('cessation_support')}
-            onOpenAwarenessHub={() => setCurrentScreen('awareness_hub')}
-            onOpenAskOralGuard={() => setCurrentScreen('ask_oralguard')}
-            onOpenFollowUp={() => setCurrentScreen('follow_up')}
-          />
-        )}
+            {currentScreen === 'chat' && (
+              <ChatScreen
+                onCompleteScreening={handleCompleteScreening}
+                indicators={indicators}
+                setIndicators={setIndicators}
+                initialLanguage={selectedLanguage}
+                onOpenCessation={() => setCurrentScreen('cessation_support')}
+                onOpenAwarenessHub={() => setCurrentScreen('awareness_hub')}
+                onOpenAskOralGuard={() => setCurrentScreen('ask_oralguard')}
+                onOpenFollowUp={() => setCurrentScreen('follow_up')}
+              />
+            )}
 
-        {currentScreen === 'result' && assessmentResult && (
-          <ResultScreen
-            assessment={assessmentResult}
-            profile={indicators}
-            onBookAppointment={handleBookAppointmentClick}
-            onRetake={handleRetakeScreening}
-            onOpenScanner={() => setCurrentScreen('mouth_scanner')}
-            onOpenTracker={() => setCurrentScreen('symptom_tracker')}
-            onOpenMouthMap={() => setCurrentScreen('mouth_map')}
-            onOpenCessation={() => setCurrentScreen('cessation_support')}
-            onOpenAwarenessHub={() => setCurrentScreen('awareness_hub')}
-            onOpenDoctorHandoff={() => setCurrentScreen('doctor_handoff')}
-            onOpenHelplines={() => setCurrentScreen('health_helplines')}
-            onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
-            onOpenAskOralGuard={() => setCurrentScreen('ask_oralguard')}
-            onOpenFollowUp={() => setCurrentScreen('follow_up')}
-            onOpenHistory={() => setIsHistoryModalOpen(true)}
-          />
-        )}
+            {currentScreen === 'result' && (
+              <ResultScreen
+                assessment={assessmentResult || null}
+                profile={indicators}
+                onBookAppointment={handleBookAppointmentClick}
+                onRetake={handleRetakeScreening}
+                onStartScreening={(starterText) => {
+                  if (starterText) {
+                    setIndicators(prev => ({
+                      ...prev,
+                      concerns: [...(prev.concerns || [])]
+                    }));
+                  }
+                  setCurrentScreen('chat');
+                }}
+                onOpenScanner={() => setCurrentScreen('mouth_scanner')}
+                onOpenTracker={() => setCurrentScreen('symptom_tracker')}
+                onOpenMouthMap={() => setCurrentScreen('mouth_map')}
+                onOpenCessation={() => setCurrentScreen('cessation_support')}
+                onOpenAwarenessHub={() => setCurrentScreen('awareness_hub')}
+                onOpenDoctorHandoff={() => setCurrentScreen('doctor_handoff')}
+                onOpenHelplines={() => setCurrentScreen('health_helplines')}
+                onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
+                onOpenAskOralGuard={() => setCurrentScreen('ask_oralguard')}
+                onOpenFollowUp={() => setCurrentScreen('follow_up')}
+                onOpenHistory={() => setIsHistoryModalOpen(true)}
+              />
+            )}
 
-        {currentScreen === 'ask_oralguard' && (
-          <AskOralGuardScreen
-            indicators={indicators}
-            setIndicators={setIndicators}
-            onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-            onOpenDoctorHandoff={() => setCurrentScreen('doctor_handoff')}
-            onOpenFinder={() => setCurrentScreen('appointment')}
-            onOpenFollowUp={() => setCurrentScreen('follow_up')}
-            onOpenEmergency={() => setCurrentScreen('emergency_guidance')}
-            onOpenCessation={() => setCurrentScreen('cessation_support')}
-          />
-        )}
+            {currentScreen === 'ask_oralguard' && (
+              <AskOralGuardScreen
+                indicators={indicators}
+                setIndicators={setIndicators}
+                onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                onOpenDoctorHandoff={() => setCurrentScreen('doctor_handoff')}
+                onOpenFinder={() => setCurrentScreen('appointment')}
+                onOpenFollowUp={() => setCurrentScreen('follow_up')}
+                onOpenEmergency={() => setCurrentScreen('emergency_guidance')}
+                onOpenCessation={() => setCurrentScreen('cessation_support')}
+              />
+            )}
 
-        {currentScreen === 'follow_up' && (
-          <FollowUpScreen
-            indicators={indicators}
-            setIndicators={setIndicators}
-            onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-            onOpenTracker={() => setCurrentScreen('symptom_tracker')}
-            onOpenDoctorHandoff={() => setCurrentScreen('doctor_handoff')}
-            onOpenFinder={() => setCurrentScreen('appointment')}
-          />
-        )}
+            {currentScreen === 'follow_up' && (
+              <FollowUpScreen
+                indicators={indicators}
+                setIndicators={setIndicators}
+                onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                onOpenTracker={() => setCurrentScreen('symptom_tracker')}
+                onOpenDoctorHandoff={() => setCurrentScreen('doctor_handoff')}
+                onOpenFinder={() => setCurrentScreen('appointment')}
+              />
+            )}
 
-        {currentScreen === 'doctor_handoff' && (
-          <DoctorHandoffScreen
-            indicators={indicators}
-            assessmentResult={assessmentResult}
-            onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-            onFindDoctors={() => setCurrentScreen('appointment')}
-            onOpenHelplines={() => setCurrentScreen('health_helplines')}
-            onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
-          />
-        )}
+            {currentScreen === 'doctor_handoff' && (
+              <DoctorHandoffScreen
+                indicators={indicators}
+                assessmentResult={assessmentResult}
+                onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                onFindDoctors={() => setCurrentScreen('appointment')}
+                onOpenHelplines={() => setCurrentScreen('health_helplines')}
+                onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
+              />
+            )}
 
-        {currentScreen === 'health_helplines' && (
-          <HealthHelplinesScreen
-            onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-            onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
-            onFindDoctors={() => setCurrentScreen('appointment')}
-          />
-        )}
+            {currentScreen === 'health_helplines' && (
+              <HealthHelplinesScreen
+                onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
+                onFindDoctors={() => setCurrentScreen('appointment')}
+              />
+            )}
 
-        {currentScreen === 'emergency_guidance' && (
-          <EmergencyGuidanceScreen
-            onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-            onFindHospital={() => setCurrentScreen('appointment')}
-            onOpenHelplines={() => setCurrentScreen('health_helplines')}
-            triggeredReason={indicators.emergencyFlagReason}
-          />
-        )}
+            {currentScreen === 'emergency_guidance' && (
+              <EmergencyGuidanceScreen
+                onBack={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                onFindHospital={() => setCurrentScreen('appointment')}
+                onOpenHelplines={() => setCurrentScreen('health_helplines')}
+                triggeredReason={indicators.emergencyFlagReason}
+              />
+            )}
 
-        {currentScreen === 'mouth_scanner' && (
-          <div className="flex-1 overflow-y-auto bg-slate-50 p-3">
-            <MouthScannerScreen
-              photos={indicators.photoDocumentation || []}
-              onSavePhoto={handleSavePhotoFromScanner}
-              onDeletePhoto={handleDeletePhotoFromScanner}
-              availableMouthLocations={indicators.mouthMapLocations || []}
-              onOpenMouthMap={() => setCurrentScreen('mouth_map')}
-              onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-              language={selectedLanguage}
-            />
-          </div>
-        )}
+            {currentScreen === 'mouth_scanner' && (
+              <div className="flex-1 overflow-y-auto bg-slate-50 p-3">
+                <MouthScannerScreen
+                  photos={indicators.photoDocumentation || []}
+                  onSavePhoto={handleSavePhotoFromScanner}
+                  onDeletePhoto={handleDeletePhotoFromScanner}
+                  availableMouthLocations={indicators.mouthMapLocations || []}
+                  onOpenMouthMap={() => setCurrentScreen('mouth_map')}
+                  onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                  language={selectedLanguage}
+                />
+              </div>
+            )}
 
-        {currentScreen === 'mouth_map' && (
-          <div className="flex-1 overflow-y-auto bg-slate-100 p-3">
-            <InteractiveMouthMap
-              confirmedLocation={indicators.primarySymptomLocation}
-              confirmedLocations={indicators.mouthMapLocations || []}
-              onConfirmMultipleLocations={handleConfirmMultipleMapLocations}
-              onCancel={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-              onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-              language={selectedLanguage}
-            />
-          </div>
-        )}
+            {currentScreen === 'mouth_map' && (
+              <div className="flex-1 overflow-y-auto bg-slate-100 p-3">
+                <InteractiveMouthMap
+                  confirmedLocation={indicators.primarySymptomLocation}
+                  confirmedLocations={indicators.mouthMapLocations || []}
+                  onConfirmMultipleLocations={handleConfirmMultipleMapLocations}
+                  onCancel={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                  onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                  language={selectedLanguage}
+                />
+              </div>
+            )}
 
-        {currentScreen === 'symptom_tracker' && (
-          <div className="flex-1 overflow-y-auto bg-slate-50 p-3">
-            <SymptomProgressTracker
-              entries={indicators.symptomProgress || []}
-              onAddEntry={handleAddSymptomEntry}
-              onDeleteEntry={handleDeleteSymptomEntry}
-              screeningProfile={indicators}
-              availableMouthLocations={indicators.mouthMapLocations || []}
-              onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-              language={selectedLanguage}
-            />
-          </div>
-        )}
+            {currentScreen === 'symptom_tracker' && (
+              <div className="flex-1 overflow-y-auto bg-slate-50 p-3">
+                <SymptomProgressTracker
+                  entries={indicators.symptomProgress || []}
+                  onAddEntry={handleAddSymptomEntry}
+                  onDeleteEntry={handleDeleteSymptomEntry}
+                  screeningProfile={indicators}
+                  availableMouthLocations={indicators.mouthMapLocations || []}
+                  onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                  language={selectedLanguage}
+                />
+              </div>
+            )}
 
-        {currentScreen === 'cessation_support' && (
-          <div className="flex-1 overflow-y-auto bg-slate-50 p-3">
-            <TobaccoCessationScreen
-              currentPlan={indicators.tobaccoUse}
-              logs={indicators.cessationLogs || []}
-              patientProfile={indicators}
-              onSavePlan={handleSaveCessationPlan}
-              onAddLogEntry={handleAddCessationLog}
-              onDeleteLogEntry={handleDeleteCessationLog}
-              onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-              language={selectedLanguage}
-            />
-          </div>
-        )}
+            {currentScreen === 'cessation_support' && (
+              <div className="flex-1 overflow-y-auto bg-slate-50 p-3">
+                <TobaccoCessationScreen
+                  currentPlan={indicators.tobaccoUse}
+                  logs={indicators.cessationLogs || []}
+                  patientProfile={indicators}
+                  onSavePlan={handleSaveCessationPlan}
+                  onAddLogEntry={handleAddCessationLog}
+                  onDeleteLogEntry={handleDeleteCessationLog}
+                  onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                  language={selectedLanguage}
+                />
+              </div>
+            )}
 
-        {currentScreen === 'awareness_hub' && (
-          <div className="flex-1 overflow-y-auto bg-slate-50 p-3">
-            <OralAwarenessHubScreen
-              patientProfile={indicators}
-              onOpenCessation={() => setCurrentScreen('cessation_support')}
-              onOpenScanner={() => setCurrentScreen('mouth_scanner')}
-              onOpenMouthMap={() => setCurrentScreen('mouth_map')}
-              onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
-              language={selectedLanguage}
-            />
-          </div>
-        )}
+            {currentScreen === 'awareness_hub' && (
+              <div className="flex-1 overflow-y-auto bg-slate-50 p-3">
+                <OralAwarenessHubScreen
+                  patientProfile={indicators}
+                  onOpenCessation={() => setCurrentScreen('cessation_support')}
+                  onOpenScanner={() => setCurrentScreen('mouth_scanner')}
+                  onOpenMouthMap={() => setCurrentScreen('mouth_map')}
+                  onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
+                  language={selectedLanguage}
+                />
+              </div>
+            )}
 
-        {currentScreen === 'appointment' && (
-          <AppointmentMockScreen
-            onBackToHome={handleBackToHome}
-            onRetakeScreening={handleRetakeScreening}
-            shareSummaryConsent={shareSummaryConsent}
-            selectedLanguage={selectedLanguage}
-            onOpenHelplines={() => setCurrentScreen('health_helplines')}
-            onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
-            onOpenDoctorHandoff={() => setCurrentScreen('doctor_handoff')}
-          />
-        )}
+            {currentScreen === 'appointment' && (
+              <AppointmentMockScreen
+                onBackToHome={handleBackToHome}
+                onRetakeScreening={handleRetakeScreening}
+                shareSummaryConsent={shareSummaryConsent}
+                selectedLanguage={selectedLanguage}
+                onOpenHelplines={() => setCurrentScreen('health_helplines')}
+                onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
+                onOpenDoctorHandoff={() => setCurrentScreen('doctor_handoff')}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Cross-Session Firestore Assessment History Modal */}
@@ -467,6 +495,10 @@ export default function App() {
         onSelectPastAssessment={(selected) => {
           setAssessmentResult(selected);
           setCurrentScreen('result');
+        }}
+        onStartNewScreening={(starterText) => {
+          setIsHistoryModalOpen(false);
+          setCurrentScreen('chat');
         }}
       />
     </MobileContainer>

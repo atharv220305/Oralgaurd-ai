@@ -67,8 +67,22 @@ export interface SymptomProgressEntry {
 export type FollowUpStatus = 'upcoming' | 'completed' | 'cancelled';
 
 export type ConcernType =
+  | 'gum_gingival_periodontal'
+  | 'tooth_pain'
+  | 'tooth_sensitivity'
+  | 'tooth_decay_cavity'
+  | 'bad_breath_halitosis'
   | 'lesion_ulcer'
   | 'color_change'
+  | 'mucosal_patch'
+  | 'tongue_complaint'
+  | 'oral_swelling'
+  | 'jaw_facial_pain'
+  | 'dental_infection'
+  | 'tobacco_areca_risk'
+  | 'oral_hygiene'
+  | 'dry_mouth'
+  | 'trauma_irritation'
   | 'bleeding'
   | 'lump_thickening'
   | 'trismus'
@@ -76,17 +90,36 @@ export type ConcernType =
   | 'paresthesia'
   | 'pain'
   | 'chronic_irritation'
+  | 'emergency_airway_bleeding'
   | 'other';
+
+export type CareLevel =
+  | 'Routine'
+  | 'Needs dental evaluation'
+  | 'Prompt evaluation'
+  | 'Urgent'
+  | 'Emergency';
+
+export type RecommendedProfessional =
+  | 'General Dentist'
+  | 'Periodontist'
+  | 'Oral & Maxillofacial Specialist'
+  | 'Oral Medicine Specialist'
+  | 'ENT Specialist'
+  | 'Emergency Department'
+  | 'Dental Clinic';
 
 export interface ClinicalConcern {
   id: string;
   type: ConcernType;
+  title?: string;
   description: string;
   locations: string[];
   duration?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
   durationCategory?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown';
   durationText?: string;
   durationOverTwoWeeks?: boolean;
+  severity?: 'mild' | 'moderate' | 'severe' | 'critical';
   pain?: boolean;
   bleeding?: boolean;
   soreBleeding?: boolean;
@@ -96,6 +129,8 @@ export interface ClinicalConcern {
   status: 'active' | 'resolved' | 'monitoring';
   isPrimary?: boolean;
   evidenceSnippets?: string[];
+  recommendedNextStep?: string;
+  professionalEvaluationRecommended?: boolean;
   detectedAt?: number;
   lastUpdatedAt?: number;
 }
@@ -207,6 +242,13 @@ export interface PatientProfile {
   unexplainedBleeding?: boolean;
   soreBleeding?: boolean;
   gumBleeding?: boolean;
+  toothPain?: boolean;
+  toothSensitivity?: boolean;
+  toothDecay?: boolean;
+  badBreath?: boolean;
+  oralSwelling?: boolean;
+  jawPain?: boolean;
+  dryMouth?: boolean;
   mouthPainOrBurning?: boolean;
   pain?: boolean;
   symptomTrigger?: string;
@@ -404,6 +446,14 @@ export interface ScreeningSession {
 export interface AssessmentResult {
   riskLevel: RiskLevel;
   screeningConcern: ScreeningConcernLevel;
+  careLevel?: CareLevel;
+  recommendedProfessional?: string;
+  concerns?: ClinicalConcern[];
+  nextSteps?: string[];
+  patientQuestions?: string[];
+  redFlags?: string[];
+  riskFactors?: string[];
+  emergency?: boolean;
   confidenceNotes: string;
   summaryOfFindings: string;
   keyFindings: {
