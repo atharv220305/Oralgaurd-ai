@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MapPin,
   Check,
@@ -86,6 +86,17 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
   const isHindi = language === 'hi';
   const isHinglish = language === 'hinglish';
 
+  // Body scroll-locking cleanup: Ensure that when the modal is closed or unmounted,
+  // any 'overflow: hidden' applied to the body element is explicitly removed.
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalOverflow || '';
+    };
+  }, []);
+
   const selectedRegions: OralRegion[] = draftRegionIds
     .map((id) => ORAL_REGIONS[id])
     .filter((reg): reg is OralRegion => Boolean(reg));
@@ -162,18 +173,27 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
   // Confirm Location(s)
   const handleConfirm = () => {
     if (draftRegionIds.length === 0) return;
+    document.body.style.overflow = '';
 
     if (onConfirmMultipleLocations) {
       onConfirmMultipleLocations(selectedRegions, selectedConcernId);
     } else if (onConfirmLocation && selectedRegions.length > 0) {
       onConfirmLocation(selectedRegions[0]);
     }
+    if (onClose) {
+      onClose();
+    }
   };
 
   // Cancel: Discards unconfirmed changes and restores previously confirmed state
   const handleCancel = () => {
+    document.body.style.overflow = '';
     setDraftRegionIds(initialSelectedIds);
-    onCancel();
+    if (onClose) {
+      onClose();
+    } else {
+      onCancel();
+    }
   };
 
   // Dedicated "Not sure / I can't identify exact area"
@@ -287,7 +307,8 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
   return (
     <div
       id="oralguard-interactive-mouth-map"
-      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col transition-all"
+      className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col transition-all max-h-[80vh] overflow-y-auto [touch-action:pan-y] touch-pan-y"
+      style={{ touchAction: 'pan-y', maxHeight: '80vh', overflowY: 'auto' }}
     >
       {/* Top Clinical Header */}
       <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
@@ -360,7 +381,10 @@ export const InteractiveMouthMap: React.FC<InteractiveMouthMapProps> = ({
       </div>
 
       {/* Main Grid: SVG Map + Clinical Controls */}
-      <div className={`p-4 grid ${isCompact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-12'} gap-4 items-start bg-slate-50/50`}>
+      <div
+        className={`p-4 grid ${isCompact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-12'} gap-4 items-start bg-slate-50/50 max-h-[80vh] overflow-y-auto [touch-action:pan-y] touch-pan-y`}
+        style={{ touchAction: 'pan-y', maxHeight: '80vh', overflowY: 'auto' }}
+      >
         {/* Left/Top: Professional Anatomical Medical SVG */}
         <div className={`${isCompact ? 'w-full' : 'md:col-span-6'} flex flex-col items-center`}>
           {/* Orientation indicators */}

@@ -61,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   const isHome = currentScreen === 'welcome' || currentScreen === 'splash';
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3.5 py-2 flex items-center justify-between transition-all">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3.5 py-2 flex items-center justify-between transition-colors">
       {/* Brand & Home Shortcut */}
       <div className="flex items-center gap-2 min-w-0">
         <button

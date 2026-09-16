@@ -5,7 +5,7 @@
  * and seamless links to Doctor Handoff, Finder, Cessation, Hub, Ask OralGuard, and Follow-ups.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -45,7 +45,7 @@ import { PrivacyTrustFooter } from './PrivacyTrustFooter';
 interface ResultScreenProps {
   assessment?: AssessmentResult | null;
   profile?: PatientProfile;
-  onBookAppointment: (shareSummaryConsent?: boolean) => void;
+  onBookAppointment: (shareSummaryConsent?: boolean, specialtyFilter?: string) => void;
   onRetake: () => void;
   onStartScreening?: (starterText?: string) => void;
   onOpenScanner?: () => void;
@@ -114,7 +114,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         ];
 
     return (
-      <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
+      <div className="flex flex-col h-full bg-slate-50 text-slate-900 overflow-y-auto transition-colors">
         <div className="p-4 sm:p-5 max-w-lg mx-auto w-full space-y-4 pb-8 flex-1">
           {/* Header */}
           <div className="pt-1">
@@ -337,11 +337,109 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const handleConsentChoice = (agreed: boolean) => {
     setUserConsentedToShare(agreed);
     setShowConsentModal(false);
-    onBookAppointment(agreed);
+    onBookAppointment(agreed, mappedProfessional);
   };
 
+  const mappedProfessional = useMemo(() => {
+    if (assessment?.identifiedCondition) {
+      const cond = assessment.identifiedCondition.toLowerCase();
+      if (cond.includes('emergency') || cond.includes('airway') || cond.includes('hemorrhage') || cond.includes('severe swelling')) {
+        return 'Emergency Care';
+      }
+      if (cond.includes('periodont') || cond.includes('gingiv') || cond.includes('gum bleeding') || cond.includes('periodontitis')) {
+        return 'Periodontist';
+      }
+      if (cond.includes('lesion') || cond.includes('ulcer') || cond.includes('mucosal') || cond.includes('maxillofacial') || cond.includes('leukoplakia') || cond.includes('erythroplakia') || cond.includes('osmf')) {
+        return 'Oral & Maxillofacial Specialist';
+      }
+      if (cond.includes('neck') || cond.includes('hoarseness') || cond.includes('lump') || cond.includes('ent') || cond.includes('otolaryngology')) {
+        return 'ENT Specialist';
+      }
+      if (cond.includes('oncology') || cond.includes('cancer') || cond.includes('tumor')) {
+        return 'Head & Neck Oncology';
+      }
+      if (cond.includes('caries') || cond.includes('tooth') || cond.includes('decay') || cond.includes('odontogenic') || cond.includes('sensitivity')) {
+        return 'General Dentist';
+      }
+    }
+
+    if (assessment?.recommendedProfessional) return assessment.recommendedProfessional;
+    if (assessment?.careLevel === 'Emergency' || profile?.emergencyFlagTriggered) return 'Emergency Care';
+    if (profile?.gumBleeding && !profile?.toothDecay) return 'Periodontist';
+    if (profile?.persistentHoarseness || profile?.neckLumpOrSwelling) return 'ENT Specialist';
+    if (profile?.hasLesionOrUlcer && profile?.durationOverTwoWeeks) return 'Oral & Maxillofacial Specialist';
+    return 'General Dentist';
+  }, [assessment, profile]);
+
+  const specialtyInfo = useMemo(() => {
+    const prof = mappedProfessional.toLowerCase();
+    if (prof.includes('periodontist')) {
+      return {
+        title: isHindi ? 'मसूड़ा रोग विशेषज्ञ (Periodontist)' : isMarathi ? 'मसूढातज्ज्ञ (Periodontist)' : 'Periodontist (Gum Specialist)',
+        shortName: 'Periodontist',
+        badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        reason: isHindi
+          ? 'आपके द्वारा रिपोर्ट किए गए मसूड़ों में सूजन और रक्तस्राव के आधार पर स्वचालित रूप से पिरियोडॉन्टिस्ट (मसूड़ा विशेषज्ञ) से परामर्श का सुझाव दिया गया है।'
+          : isMarathi
+          ? 'तुम्ही नोंदवलेल्या हिरड्यांमधील सूज व रक्तस्त्रावाच्या आधारे स्वयंचलितपणे मसूढातज्ज्ञांचा (Periodontist) सल्ला सुचवला आहे.'
+          : 'Mapped based on reported gingival bleeding, gum tissue inflammation, or periodontal irritation.',
+        buttonText: isHindi ? 'निकटतम पिरियोडॉन्टिस्ट (Periodontist) अस्पताल खोजें' : isMarathi ? 'जवळचे मसूढातज्ज्ञ (Periodontist) केंद्र शोधा' : 'Search Nearby Periodontists',
+      };
+    }
+    if (prof.includes('maxillofacial') || prof.includes('oral specialist') || prof.includes('surgeon')) {
+      return {
+        title: isHindi ? 'ओरल एंड मैक्सिलोफेशियल विशेषज्ञ (Oral Surgeon)' : isMarathi ? 'ओरल अँड मॅक्सिलोफेशिअल तज्ज्ञ' : 'Oral & Maxillofacial Specialist',
+        shortName: 'Maxillofacial Specialist',
+        badgeBg: 'bg-purple-100 text-purple-900 border-purple-200',
+        reason: isHindi
+          ? '2 सप्ताह से अधिक पुराने छालों, सफेद/लाल धब्बों अथवा श्लेष्मा परिवर्तनों के विशेषज्ञ परीक्षण हेतु ओरल सर्जन का सुझाव दिया गया है।'
+          : isMarathi
+          ? '२ आठवड्यांपेक्षा जास्त जुन्या फोडांच्या व म्यूकोसल बदलांच्या तपासणीसाठी ओरल सर्जनचा सल्ला सुचवला आहे.'
+          : 'Mapped based on persistent mucosal lesion (>14 days), unhealed ulceration, or suspicious tissue changes.',
+        buttonText: isHindi ? 'निकटतम ओरल एंड मैक्सिलोफेशियल विशेषज्ञ खोजें' : isMarathi ? 'जवळचे ओरल (Maxillofacial) तज्ज्ञ शोधा' : 'Search Nearby Maxillofacial Specialists',
+      };
+    }
+    if (prof.includes('ent')) {
+      return {
+        title: isHindi ? 'ईएनटी विशेषज्ञ (ENT Specialist)' : isMarathi ? 'ईएनटी तज्ज्ञ (ENT Specialist)' : 'ENT Specialist (Otolaryngologist)',
+        shortName: 'ENT Specialist',
+        badgeBg: 'bg-blue-100 text-blue-900 border-blue-200',
+        reason: isHindi
+          ? 'गले में परेशानी, आवाज में बदलाव या गर्दन में सूजन के गहन परीक्षण के लिए ईएनटी (ENT) विशेषज्ञ का सुझाव दिया गया है।'
+          : isMarathi
+          ? 'घशातील त्रास, आवाजातील बदल किंवा मानेतील सुजेच्या तपासणीसाठी ईएनटी (ENT) तज्ज्ञांचा सल्ला सुचवला आहे.'
+          : 'Mapped based on persistent hoarseness, upper respiratory tract symptoms, or neck lymph node indicators.',
+        buttonText: isHindi ? 'निकटतम ईएनटी (ENT) विशेषज्ञ अस्पताल खोजें' : isMarathi ? 'जवळचे ईएनटी (ENT) तज्ज्ञ रुग्णालय शोधा' : 'Search Nearby ENT Specialists',
+      };
+    }
+    if (prof.includes('emergency')) {
+      return {
+        title: isHindi ? 'आपातकालीन चिकित्सा विभाग (Emergency Care)' : isMarathi ? 'आपत्कालीन वैद्यकीय विभाग (Emergency Care)' : 'Emergency Care / Casualty Unit',
+        shortName: 'Emergency Care',
+        badgeBg: 'bg-rose-100 text-rose-900 border-rose-200',
+        reason: isHindi
+          ? 'तीव्र चेतावनी संकेतों (सांस लेने/निगलने में गंभीर समस्या या अत्यधिक रक्तस्राव) के लिए तत्काल आपातकालीन चिकित्सा का सुझाव दिया गया है।'
+          : isMarathi
+          ? 'गंभीर लक्षणांसाठी (श्वास घेण्यास त्रास / सतत रक्तस्त्राव) तातडीने आपत्कालीन कक्षाशी संपर्क साधा.'
+          : 'Mapped due to acute clinical red flags (airway compromise, rapid facial swelling, or severe oral bleeding).',
+        buttonText: isHindi ? 'निकटतम आपातकालीन अस्पताल (Emergency) खोजें' : isMarathi ? 'जवळचे आपत्कालीन रुग्णालय (Emergency) शोधा' : 'Search Nearby Emergency Departments',
+      };
+    }
+    return {
+      title: isHindi ? 'सामान्य दंत चिकित्सक (General Dentist)' : isMarathi ? 'सर्वसाधारण दंतवैद्य (General Dentist)' : 'General Dentist',
+      shortName: 'General Dentist',
+      badgeBg: 'bg-teal-100 text-teal-900 border-teal-200',
+      reason: isHindi
+        ? 'दांत दर्द, सड़न, कैविटी या सामान्य मुख स्वच्छता और निवारक जांच के लिए दंत चिकित्सक का सुझाव दिया गया है।'
+        : isMarathi
+        ? 'दातदुखी, कीड किंवा सर्वसाधारण दातांच्या तपासणीसाठी दंतवैद्यांचा सल्ला सुचवला आहे.'
+        : 'Mapped for dental caries, toothache, localized sensitivity, or routine preventive oral examination.',
+      buttonText: isHindi ? 'निकटतम दंत चिकित्सक (General Dentist) खोजें' : isMarathi ? 'जवळचे दंतवैद्य (General Dentist) शोधा' : 'Search Nearby General Dentists',
+    };
+  }, [mappedProfessional, isHindi, isMarathi]);
+
   return (
-    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
+    <div className="flex flex-col h-full bg-slate-50 text-slate-900 overflow-y-auto transition-colors">
       <div className="p-4 sm:p-5 max-w-lg mx-auto w-full space-y-4 pb-12">
         {/* Top Header */}
         <div className="pt-1">
@@ -394,6 +492,62 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <span>Overall Concern: <strong className="uppercase text-slate-800">{screeningConcern}</strong></span>
             <span>Non-Diagnostic Triage</span>
           </div>
+        </motion.div>
+
+        {/* Automatic Clinical Referral & Direct Specialty Provider Search Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="bg-white p-4.5 rounded-2xl border border-teal-200/90 shadow-2xs space-y-3.5 bg-gradient-to-br from-teal-50/50 via-white to-emerald-50/30 relative overflow-hidden"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <Stethoscope className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  {isHindi ? 'स्वचालित क्लिनिकल विशेषज्ञ मैपिंग' : isMarathi ? 'स्वयंचलित क्लिनिकल तज्ज्ञ मॅपिंग' : 'Mapped Clinical Specialty'}
+                </h2>
+                <p className="text-[10.5px] text-slate-500">
+                  {isHindi ? 'आपके लक्षणों के आधार पर स्वचालित अनुशंसित विशेषज्ञ' : isMarathi ? 'तुमच्या लक्षणांनुसार सुचवलेले तज्ज्ञ' : 'Automatically mapped based on reported oral symptoms'}
+                </p>
+              </div>
+            </div>
+            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-2xs shrink-0 ${specialtyInfo.badgeBg}`}>
+              {specialtyInfo.title}
+            </span>
+          </div>
+
+          <div className="p-3 bg-white/90 rounded-xl border border-teal-100 text-[11px] text-slate-700 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-teal-900">
+              <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>
+                {isHindi ? 'मैपिंग का नैदानिक कारण:' : isMarathi ? 'मॅपिंगचे क्लिनिकल कारण:' : 'Clinical Rationale:'}
+              </span>
+            </div>
+            <p className="text-slate-600 leading-relaxed pl-5">
+              {specialtyInfo.reason}
+            </p>
+          </div>
+
+          {/* Provider Search Button - Direct specialty filter without manual entry */}
+          <button
+            type="button"
+            onClick={handleInitiateBooking}
+            id="btn-search-specialty-providers-card"
+            className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-between shadow-xs shadow-teal-700/20 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-2">
+              <Hospital className="w-4 h-4 text-teal-200 shrink-0" />
+              <span>{specialtyInfo.buttonText}</span>
+            </div>
+            <div className="flex items-center gap-1 bg-teal-700/60 px-2 py-0.5 rounded-md text-[10.5px] text-teal-100 font-semibold group-hover:bg-teal-800 transition-colors">
+              <span>Auto-Filtered</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </button>
         </motion.div>
 
         {/* Identified Clinical Concerns (Multi-concern model) */}
@@ -765,21 +919,20 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
         {/* Action Buttons */}
         <div className="pt-2 space-y-2.5">
-          {/* Prototype Book Appointment Button */}
+          {/* Direct Provider Search Button Filtered by Specialty */}
           <button
             onClick={handleInitiateBooking}
             id="btn-book-appointment"
-            className="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-sm shadow-teal-700/20 transition-all cursor-pointer"
+            className="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-between shadow-sm shadow-teal-700/20 transition-all cursor-pointer group"
           >
-            <Hospital className="w-4 h-4" />
-            <span>
-              {isHindi
-                ? 'अस्पताल / डॉक्टर से परामर्श बुक करें'
-                : isMarathi
-                ? 'दवाखाना / डॉक्टर तपासणी शोधा'
-                : 'Smart Doctor & Hospital Finder'}
-            </span>
-            <ArrowRight className="w-4 h-4 ml-1" />
+            <div className="flex items-center gap-2">
+              <Hospital className="w-4.5 h-4.5 text-teal-200 shrink-0" />
+              <span>{specialtyInfo.buttonText}</span>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-teal-100 bg-teal-700/70 px-2.5 py-1 rounded-md group-hover:bg-teal-800 transition-colors">
+              <span>Auto-Filtered</span>
+              <ArrowRight className="w-4 h-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
           </button>
 
           <button

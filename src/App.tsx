@@ -53,6 +53,7 @@ export default function App() {
   const [indicators, setIndicators] = useState<PatientProfile>({});
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResult | null>(null);
   const [shareSummaryConsent, setShareSummaryConsent] = useState<boolean>(true);
+  const [selectedSpecialtyFilter, setSelectedSpecialtyFilter] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<AppLanguage>('en');
 
   // Firestore Sync & History state
@@ -84,7 +85,7 @@ export default function App() {
             setAssessmentResult(restored.latestAssessment);
           }
         }
-        setSyncStatus('synced');
+        setSyncStatus(restored?.isOffline ? 'offline' : 'synced');
       } catch (err) {
         console.warn('Could not restore from Firestore, falling back to local state:', err);
         if (isMounted) setSyncStatus('offline');
@@ -142,9 +143,12 @@ export default function App() {
     }
   };
 
-  const handleBookAppointmentClick = (consent?: boolean) => {
+  const handleBookAppointmentClick = (consent?: boolean, specialtyFilter?: string) => {
     if (typeof consent === 'boolean') {
       setShareSummaryConsent(consent);
+    }
+    if (specialtyFilter) {
+      setSelectedSpecialtyFilter(specialtyFilter);
     }
     setCurrentScreen('appointment');
   };
@@ -472,6 +476,9 @@ export default function App() {
 
             {currentScreen === 'appointment' && (
               <AppointmentMockScreen
+                indicators={indicators}
+                assessmentResult={assessmentResult}
+                initialSpecialtyFilter={selectedSpecialtyFilter}
                 onBackToHome={handleBackToHome}
                 onRetakeScreening={handleRetakeScreening}
                 shareSummaryConsent={shareSummaryConsent}

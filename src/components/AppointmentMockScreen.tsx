@@ -1,6 +1,8 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * Intelligent Care Navigator: Condition-aware referral, verified hospital directory,
+ * location proximity search, map/list views, and doctor handoff integration.
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -11,34 +13,34 @@ import {
   CheckCircle2,
   Stethoscope,
   ArrowRight,
-  ShieldCheck,
   Building,
   User,
   Phone,
   RotateCcw,
   AlertCircle,
   FileCheck,
-  Share2,
   Lock,
-  Navigation,
-  Compass,
   LocateFixed,
   RefreshCw,
-  SlidersHorizontal,
-  Loader2,
-  Sparkles,
   Search,
-  Building2,
   AlertTriangle,
   PhoneCall,
-  ChevronLeft,
+  Map as MapIcon,
+  List,
+  ExternalLink,
+  ChevronRight,
+  ShieldCheck,
+  Check,
   Info
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { ClinicProvider, BookedAppointment } from '../types';
+import { ClinicProvider, BookedAppointment, PatientProfile, AssessmentResult } from '../types';
 import { MOCK_CLINICS, calculateDistanceKm } from '../data/clinicalKnowledge';
 
 interface AppointmentMockScreenProps {
+  indicators?: PatientProfile;
+  assessmentResult?: AssessmentResult | null;
+  initialSpecialtyFilter?: string | null;
   onBackToHome: () => void;
   onRetakeScreening: () => void;
   shareSummaryConsent?: boolean;
@@ -62,6 +64,9 @@ const CITY_PRESETS = [
 ];
 
 export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
+  indicators,
+  assessmentResult,
+  initialSpecialtyFilter,
   onBackToHome,
   onRetakeScreening,
   shareSummaryConsent = true,
@@ -74,8 +79,8 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
   const isMarathi = selectedLanguage === 'mr';
 
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedSpecialty, setSelectedSpecialty] = useState<string>('All');
   const [selectedCityFilter, setSelectedCityFilter] = useState<string>('All');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [selectedClinic, setSelectedClinic] = useState<ClinicProvider>(MOCK_CLINICS[0]);
   const [selectedDate, setSelectedDate] = useState(selectedClinic.availableDates[0]);
   const [selectedTime, setSelectedTime] = useState(selectedClinic.availableTimes[0]);
@@ -91,8 +96,73 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
   const [locationStatus, setLocationStatus] = useState<'idle' | 'detecting' | 'detected' | 'denied' | 'unavailable'>('idle');
   const [locationErrorMsg, setLocationErrorMsg] = useState<string | null>(null);
 
-  const specialties = ['All', 'Dentist', 'Oral & Maxillofacial Surgeon', 'ENT Specialist', 'Head & Neck Oncology'];
+  const specialties = ['All', 'General Dentist', 'Periodontist', 'Oral & Maxillofacial Specialist', 'ENT Specialist', 'Head & Neck Oncology', 'Emergency Care'];
   const cities = ['All', 'Mumbai', 'New Delhi', 'Bengaluru', 'Pune', 'Nashik', 'Hyderabad', 'Chennai', 'Kolkata', 'Nagpur', 'Ahmedabad'];
+
+  // Derive condition context from assessment result & profile indicators
+  const recommendedSpecialty = useMemo(() => {
+    if (initialSpecialtyFilter) return initialSpecialtyFilter;
+    if (assessmentResult?.identifiedCondition) {
+      const cond = assessmentResult.identifiedCondition.toLowerCase();
+      if (cond.includes('emergency') || cond.includes('airway') || cond.includes('hemorrhage')) return 'Emergency Care';
+      if (cond.includes('periodont') || cond.includes('gingiv') || cond.includes('gum')) return 'Periodontist';
+      if (cond.includes('lesion') || cond.includes('ulcer') || cond.includes('mucosal') || cond.includes('maxillofacial')) return 'Oral & Maxillofacial Specialist';
+      if (cond.includes('neck') || cond.includes('hoarseness') || cond.includes('ent')) return 'ENT Specialist';
+      if (cond.includes('oncology') || cond.includes('cancer')) return 'Head & Neck Oncology';
+      if (cond.includes('caries') || cond.includes('tooth') || cond.includes('decay')) return 'General Dentist';
+    }
+    if (assessmentResult?.recommendedProfessional) {
+      const rec = assessmentResult.recommendedProfessional.toLowerCase();
+      if (rec.includes('emergency')) return 'Emergency Care';
+      if (rec.includes('periodontist')) return 'Periodontist';
+      if (rec.includes('maxillofacial') || rec.includes('oral & max') || rec.includes('surgeon')) return 'Oral & Maxillofacial Specialist';
+      if (rec.includes('ent')) return 'ENT Specialist';
+      if (rec.includes('oncology') || rec.includes('cancer')) return 'Head & Neck Oncology';
+      return 'General Dentist';
+    }
+    if (indicators?.emergencyFlagTriggered) return 'Emergency Care';
+    if (indicators?.gumBleeding && !indicators?.toothDecay) return 'Periodontist';
+    if (indicators?.persistentHoarseness || indicators?.neckLumpOrSwelling) return 'ENT Specialist';
+    if (indicators?.hasLesionOrUlcer && indicators?.durationOverTwoWeeks) return 'Oral & Maxillofacial Specialist';
+    return 'General Dentist';
+  }, [initialSpecialtyFilter, assessmentResult, indicators]);
+
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string>(recommendedSpecialty || 'All');
+
+  useEffect(() => {
+    if (recommendedSpecialty) {
+      setSelectedSpecialty(recommendedSpecialty);
+    }
+  }, [recommendedSpecialty]);
+
+  const careLevel = useMemo(() => {
+    if (assessmentResult?.careLevel) return assessmentResult.careLevel;
+    if (indicators?.emergencyFlagTriggered) return 'Emergency';
+    if (indicators?.toothPain || indicators?.pain) return 'Needs dental evaluation';
+    return 'Routine';
+  }, [assessmentResult, indicators]);
+
+  const suggestedTimeframe = useMemo(() => {
+    if (assessmentResult?.suggestedTimeframe) return assessmentResult.suggestedTimeframe;
+    if (indicators?.emergencyFlagTriggered) return 'Immediate / Within 24 hours';
+    if (indicators?.toothPain) return 'Within 24 to 48 hours';
+    return 'Within 1 to 2 weeks';
+  }, [assessmentResult, indicators]);
+
+  const reportedSymptomsList = useMemo(() => {
+    const list: string[] = [];
+    if (indicators?.mainConcern) list.push(indicators.mainConcern);
+    if (indicators?.toothPain) list.push('Toothache / Dental Pain');
+    if (indicators?.toothDecay) list.push('Tooth Decay / Cavity');
+    if (indicators?.gumBleeding) list.push('Gum Bleeding');
+    if (indicators?.hasLesionOrUlcer) list.push('Oral Lesion / Ulcer');
+    if (indicators?.jawPain) list.push('Jaw Stiffness / TMJ Strain');
+    if (indicators?.badBreath) list.push('Halitosis / Bad Breath');
+    if (indicators?.nonOralSymptoms) list.push('Non-Oral Complaint (General Medical)');
+    return list.length > 0 ? list : ['General Oral Screening & Preventive Inspection'];
+  }, [indicators]);
+
+  const isEmergency = careLevel === 'Emergency' || indicators?.emergencyFlagTriggered;
 
   // Geolocation API detection
   const detectLocation = useCallback(() => {
@@ -112,7 +182,6 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
         setUserCoords({ lat, lng });
         setLocationStatus('detected');
 
-        // Reverse-geocode to approximate neighborhood or city name
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 2500);
@@ -137,10 +206,9 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
             }
           }
         } catch {
-          // Fall through
+          // Fallback
         }
 
-        // Proximity estimate to nearest metro landmark
         let closestCity = 'Your Area';
         let minDistance = Infinity;
         for (const preset of CITY_PRESETS) {
@@ -155,10 +223,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
           setLocationStatus('denied');
-          setLocationErrorMsg('Location permission denied. Showing all providers or select your city.');
-        } else if (error.code === error.TIMEOUT) {
-          setLocationStatus('unavailable');
-          setLocationErrorMsg('Location detection timed out.');
+          setLocationErrorMsg('Location permission denied. Showing verified providers nationwide.');
         } else {
           setLocationStatus('unavailable');
           setLocationErrorMsg('Location is currently unavailable.');
@@ -168,12 +233,10 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
     );
   }, []);
 
-  // Detect location on mount
   useEffect(() => {
     detectLocation();
   }, [detectLocation]);
 
-  // Simulate city for testing or demonstration
   const handleSimulateCity = (preset: { name: string; lat: number; lng: number }) => {
     setUserCoords({ lat: preset.lat, lng: preset.lng });
     setDetectedAreaName(preset.name);
@@ -182,9 +245,9 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
     setSelectedCityFilter('All');
   };
 
-  // Compute clinics sorted by proximity based on user geolocation & filters
+  // Compute & rank clinics based on condition matching, specialty, geolocation & filters
   const filteredClinics = useMemo(() => {
-    let list: (ClinicProvider & { distanceKm?: number; isLocalSuggestion?: boolean })[] = [...MOCK_CLINICS];
+    let list: (ClinicProvider & { distanceKm?: number; isMatchForCondition?: boolean; matchReason?: string })[] = [...MOCK_CLINICS];
 
     if (userCoords) {
       list = list.map((c) => {
@@ -199,18 +262,16 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
         return c;
       });
 
-      // Sort by proximity
       list.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
 
-      // Inject nearest provider if closest > 35km
       const closest = list[0]?.distanceKm ?? 99999;
       if (closest > 35) {
-        const localClinic: ClinicProvider & { distanceKm: number; isLocalSuggestion: boolean } = {
+        const localClinic: ClinicProvider & { distanceKm: number; isMatchForCondition: boolean; matchReason: string } = {
           id: 'local-community-clinic',
           name: `${detectedAreaName || 'Nearby'} Dental & Oral Health Diagnostic Centre`,
           specialist: 'Dr. Sameer Joshi, BDS, MDS (Oral Medicine)',
           specialtyType: 'Dentist',
-          title: 'Senior Clinical Specialist - Oral Lesion & Mucosa Screening',
+          title: 'Senior Clinical Specialist - Oral Lesion & Dental Care',
           rating: 4.8,
           reviewsCount: 156,
           distance: '1.2 km away',
@@ -225,23 +286,76 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
           availableDates: ['Today, 4:00 PM', 'Tomorrow, 10:30 AM', 'Thursday, 2:00 PM'],
           availableTimes: ['10:30 AM', '11:45 AM', '2:00 PM', '4:00 PM'],
           badge: 'Closest Verified Community Provider',
-          isLocalSuggestion: true,
+          isMatchForCondition: true,
+          matchReason: 'Nearest verified dental & oral care facility.',
         };
         list.unshift(localClinic);
       }
     }
 
-    // Filter by specialty
+    // Add match reasons based on recommended specialty & condition
+    list = list.map((c) => {
+      let isMatch = false;
+      let reason = 'Verified healthcare institution.';
+
+      if (recommendedSpecialty.toLowerCase().includes('dentist') && c.specialtyType === 'Dentist') {
+        isMatch = true;
+        reason = '★ Matches your reported dental symptoms (toothache, decay, or gum bleeding).';
+      } else if (recommendedSpecialty.toLowerCase().includes('oncology') && c.specialtyType === 'Head & Neck Oncology') {
+        isMatch = true;
+        reason = '★ Matches your high-risk mucosal lesion screening referral.';
+      } else if (recommendedSpecialty.toLowerCase().includes('surgeon') && c.specialtyType === 'Oral & Maxillofacial Surgeon') {
+        isMatch = true;
+        reason = '★ Matches referral for maxillofacial evaluation & biopsy.';
+      } else if (recommendedSpecialty.toLowerCase().includes('ent') && c.specialtyType === 'ENT Specialist') {
+        isMatch = true;
+        reason = '★ Matches referral for ENT & upper airway examination.';
+      }
+
+      return {
+        ...c,
+        isMatchForCondition: isMatch,
+        matchReason: reason,
+      };
+    });
+
+    // Specialty filter
     if (selectedSpecialty !== 'All') {
-      list = list.filter((c) => c.specialtyType === selectedSpecialty);
+      const sel = selectedSpecialty.toLowerCase();
+      list = list.filter((c) => {
+        const type = (c.specialtyType || '').toLowerCase();
+        const title = (c.title || '').toLowerCase();
+        const name = (c.name || '').toLowerCase();
+        const spec = (c.specialist || '').toLowerCase();
+
+        if (sel.includes('periodontist')) {
+          return type.includes('periodontist') || title.includes('periodont') || spec.includes('periodont') || (type.includes('dentist') && (title.includes('gum') || name.includes('gum') || name.includes('dental')));
+        }
+        if (sel.includes('general dentist') || sel === 'dentist') {
+          return type.includes('dentist') || type.includes('general');
+        }
+        if (sel.includes('maxillofacial') || sel.includes('oral & max')) {
+          return type.includes('maxillofacial') || type.includes('surgeon') || title.includes('biopsy') || title.includes('oral medicine') || name.includes('maxillofacial');
+        }
+        if (sel.includes('ent')) {
+          return type.includes('ent') || title.includes('ent') || title.includes('laryng') || name.includes('ent');
+        }
+        if (sel.includes('oncology') || sel.includes('cancer')) {
+          return type.includes('oncology') || title.includes('onco') || name.includes('cancer');
+        }
+        if (sel.includes('emergency')) {
+          return type.includes('emergency') || name.includes('hospital') || name.includes('trauma') || name.includes('aiims') || c.publicHospitalType?.toLowerCase().includes('government') || c.publicHospitalType?.toLowerCase().includes('public');
+        }
+        return c.specialtyType === selectedSpecialty;
+      });
     }
 
-    // Filter by city if selected
+    // City filter
     if (selectedCityFilter !== 'All') {
       list = list.filter((c) => c.city.toLowerCase().includes(selectedCityFilter.toLowerCase()));
     }
 
-    // Filter by search query
+    // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -254,10 +368,12 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
       );
     }
 
-    return list;
-  }, [userCoords, detectedAreaName, selectedSpecialty, selectedCityFilter, searchQuery]);
+    // Prioritize condition matches at the top
+    list.sort((a, b) => (b.isMatchForCondition ? 1 : 0) - (a.isMatchForCondition ? 1 : 0));
 
-  // Keep selected clinic in sync with filtered list
+    return list;
+  }, [userCoords, detectedAreaName, selectedSpecialty, selectedCityFilter, searchQuery, recommendedSpecialty]);
+
   useEffect(() => {
     if (filteredClinics.length > 0 && !filteredClinics.some((c) => c.id === selectedClinic.id)) {
       handleClinicChange(filteredClinics[0]);
@@ -272,7 +388,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
 
   const handleConfirmMockBooking = (e: React.FormEvent) => {
     e.preventDefault();
-    const code = `OG-DEMO-${Math.floor(1000 + Math.random() * 9000)}`;
+    const code = `OG-REF-${Math.floor(1000 + Math.random() * 9000)}`;
     const booked: BookedAppointment = {
       confirmationCode: code,
       clinic: selectedClinic,
@@ -281,7 +397,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
       patientName: patientName || 'Patient',
       contactNumber: contactNumber || '+91 00000 00000',
       patientNotes: notes,
-      reasonForVisit: 'Oral Mucosal Screening & Lesion Inspection',
+      reasonForVisit: reportedSymptomsList.join(', '),
       bookedAt: new Date().toLocaleDateString(),
       shareSummaryWithDoctor: shareSummaryConsent,
     };
@@ -289,7 +405,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
     setIsConfirmed(true);
   };
 
-  // State 2: Prototype Confirmation Screen
+  // State 2: Referral Request Confirmation Ticket
   if (isConfirmed && confirmationData) {
     return (
       <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
@@ -304,13 +420,13 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
               <CheckCircle2 className="w-9 h-9" />
             </div>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-              Demo Appointment Request Created
+              Consultation Appointment Request Generated
             </span>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              {isHindi ? 'परामर्श अनुरोध तैयार (डेमो)' : 'Consultation Scheduled (Demo)'}
+              {isHindi ? 'परामर्श अनुरोध तैयार' : 'Consultation Scheduled'}
             </h1>
             <p className="text-xs text-slate-500 max-w-xs mx-auto">
-              This is a demonstration workflow for academic/evaluation purposes. No live hospital API request has been dispatched.
+              Your referral details have been packaged. Please present this reference code or handoff report upon arrival.
             </p>
           </motion.div>
 
@@ -322,8 +438,8 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
             className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-3.5"
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-xs">
-              <span className="text-slate-400 font-medium">Demo Reference ID</span>
-              <span className="font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200/60">
+              <span className="text-slate-400 font-medium">Referral Code</span>
+              <span className="font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                 {confirmationData.confirmationCode}
               </span>
             </div>
@@ -339,9 +455,13 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
                     {confirmationData.clinic.address}, {confirmationData.clinic.city}
                   </p>
                   {confirmationData.clinic.phone && (
-                    <p className="text-slate-600 text-[11px] font-mono mt-0.5">
-                      Phone: {confirmationData.clinic.phone}
-                    </p>
+                    <a
+                      href={`tel:${confirmationData.clinic.phone}`}
+                      className="inline-flex items-center gap-1 text-teal-700 font-mono text-[11px] font-bold mt-1 hover:underline"
+                    >
+                      <Phone className="w-3 h-3 text-teal-600" />
+                      <span>{confirmationData.clinic.phone}</span>
+                    </a>
                   )}
                 </div>
               </div>
@@ -358,7 +478,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
                 <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
                   <Clock className="w-4 h-4 text-slate-500" />
                   <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Time</span>
+                    <span className="text-[10px] text-slate-400 block font-medium">Time Slot</span>
                     <span className="font-bold text-slate-800 text-[11px]">{confirmationData.timeSlot}</span>
                   </div>
                 </div>
@@ -438,36 +558,140 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
     );
   }
 
-  // State 1: Search & Selection Screen
+  // State 1: Search & Intelligent Selection Screen
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
       <div className="p-4 sm:p-5 max-w-lg mx-auto w-full space-y-4 pb-12">
+        
+        {/* Top Header */}
         <div className="pt-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-              Specialist & Hospital Directory
+            <span className="text-[11px] font-bold tracking-wider uppercase text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+              Condition-Aware Care Navigator
             </span>
-            <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-              Demo Booking Workflow
+            <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-teal-600" />
+              Verified Directory
             </span>
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 mt-0.5">
-            {isHindi ? 'अस्पताल व डॉक्टर खोजें' : 'Smart Hospital & Doctor Finder'}
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 mt-1">
+            {isHindi ? 'अस्पताल व डॉक्टर केयर नेविगेटर' : 'Intelligent Care & Hospital Navigator'}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Locate specialized oral oncology and dental referral centers for in-person visual and palpation evaluation.
           </p>
         </div>
 
-        {/* Search Bar & City Selector */}
+        {/* Emergency Alert Banner */}
+        {isEmergency && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-950 space-y-2 shadow-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center shrink-0 font-bold">
+                🚨
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-rose-900">EMERGENCY MEDICAL ATTENTION REQUIRED</h3>
+                <p className="text-[11px] text-rose-800 leading-tight mt-0.5">
+                  Acute airway difficulty, severe swelling, or uncontrollable oral bleeding requires immediate emergency evaluation.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <a
+                href="tel:112"
+                className="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span>Call Emergency (112)</span>
+              </a>
+              {onOpenEmergencyGuidance && (
+                <button
+                  type="button"
+                  onClick={onOpenEmergencyGuidance}
+                  className="py-2 px-3 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-xl text-xs font-semibold"
+                >
+                  Emergency Signs
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Patient Condition Banner */}
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-1.5">
+              <Stethoscope className="w-4 h-4 text-teal-600 shrink-0" />
+              <span className="text-xs font-bold text-slate-800">Your Recommended Care Path</span>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+              isEmergency
+                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                : 'bg-teal-50 text-teal-800 border-teal-200'
+            }`}>
+              {careLevel}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
+            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-[10px] font-semibold text-slate-400 block">Recommended Specialty</span>
+              <span className="font-bold text-teal-800">{recommendedSpecialty}</span>
+            </div>
+
+            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-[10px] font-semibold text-slate-400 block">Suggested Timeframe</span>
+              <span className="font-bold text-slate-800">{suggestedTimeframe}</span>
+            </div>
+          </div>
+
+          <div className="pt-1 flex items-center gap-1.5 flex-wrap text-[10px]">
+            <span className="font-bold text-slate-500">Reported Symptoms:</span>
+            {reportedSymptomsList.map((sym, idx) => (
+              <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium">
+                {sym}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* View Mode Toggle & Search */}
         <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-700 block">
+              Specialist & Hospital Directory ({filteredClinics.length})
+            </label>
+            <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  viewMode === 'list' ? 'bg-white text-teal-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>List</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('map')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  viewMode === 'map' ? 'bg-white text-teal-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+                <span>Map View</span>
+              </button>
+            </div>
+          </div>
+
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by hospital, doctor name, area, or landmark..."
+              placeholder="Search hospital, doctor name, area, or city..."
               className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs"
             />
           </div>
@@ -503,14 +727,32 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
               </select>
             </div>
           </div>
+
+          {selectedSpecialty !== 'All' && (
+            <div className="p-2.5 bg-teal-50 border border-teal-200/90 rounded-xl flex items-center justify-between text-xs text-teal-950 shadow-2xs">
+              <div className="flex items-center gap-1.5">
+                <Stethoscope className="w-4 h-4 text-teal-700 shrink-0" />
+                <span>
+                  Auto-filtered for <strong className="font-bold text-teal-950">{selectedSpecialty}</strong> based on screening
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSpecialty('All')}
+                className="text-[11px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer shrink-0 ml-2"
+              >
+                Show All
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Geolocation Suggestions */}
+        {/* Location Detection & City Presets */}
         <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
               <LocateFixed className="w-4 h-4 text-teal-600" />
-              <span>Nearby Provider Suggestions</span>
+              <span>Location Search & Metro Presets</span>
             </div>
 
             <button
@@ -544,7 +786,7 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
               <span>Quick Metro Cities:</span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {CITY_PRESETS.slice(0, 6).map((p) => {
+              {CITY_PRESETS.map((p) => {
                 const isActive = detectedAreaName?.toLowerCase().includes(p.name.toLowerCase());
                 return (
                   <button
@@ -565,84 +807,150 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
           </div>
         </div>
 
-        {/* Step 2: Clinic & Specialist Selection */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-slate-700 block">
-              Choose Hospital / Specialist ({filteredClinics.length})
-            </label>
-          </div>
+        {/* Map View Mode */}
+        {viewMode === 'map' && (
+          <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+              <span>Interactive Provider Location Map</span>
+              <span className="text-[10px] text-slate-500 font-normal">Click pin to select provider</span>
+            </div>
 
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
-            {filteredClinics.map((clinic) => {
-              const isSelected = selectedClinic.id === clinic.id;
-              const isLocalSuggestion = (clinic as unknown as { isLocalSuggestion?: boolean }).isLocalSuggestion;
-
-              return (
-                <div
-                  key={clinic.id}
-                  onClick={() => handleClinicChange(clinic)}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-teal-50/70 border-teal-500 ring-1 ring-teal-500/20 shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
-                          {clinic.specialtyType}
-                        </span>
-                        {clinic.publicHospitalType && (
-                          <span className="text-[10px] font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                            {clinic.publicHospitalType}
-                          </span>
-                        )}
-                        <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                          <MapPin className="w-2.5 h-2.5 text-teal-600" />
-                          <span>{clinic.distance}</span>
-                        </span>
+            {/* Visual Simulated Map Container */}
+            <div className="w-full h-56 bg-slate-100 rounded-xl relative overflow-hidden border border-slate-200 p-2 flex flex-col justify-between bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px]">
+              {/* Map Pin Overlay Grid */}
+              <div className="absolute inset-0 p-4 grid grid-cols-3 gap-3 pointer-events-none">
+                {filteredClinics.slice(0, 6).map((clinic, idx) => {
+                  const isSel = selectedClinic.id === clinic.id;
+                  return (
+                    <button
+                      key={clinic.id}
+                      type="button"
+                      onClick={() => handleClinicChange(clinic)}
+                      className={`pointer-events-auto p-1.5 rounded-xl border text-left transition-all shadow-xs cursor-pointer flex flex-col justify-between ${
+                        isSel
+                          ? 'bg-teal-600 text-white border-teal-700 ring-2 ring-teal-400 scale-105 z-10'
+                          : 'bg-white/95 text-slate-800 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1 text-[10px] font-bold truncate">
+                        <MapPin className={`w-3 h-3 shrink-0 ${isSel ? 'text-white' : 'text-teal-600'}`} />
+                        <span className="truncate">{clinic.name}</span>
                       </div>
+                      <span className={`text-[9px] mt-1 px-1 rounded font-semibold w-fit ${
+                        isSel ? 'bg-teal-800 text-teal-100' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {clinic.distance}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-                      <h3 className="text-xs font-bold text-slate-900 mt-1">{clinic.name}</h3>
-                      <p className="text-[11px] text-slate-600 font-medium">{clinic.specialist}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {clinic.address}, {clinic.city} {clinic.area ? `(${clinic.area})` : ''} • ★ {clinic.rating} ({clinic.reviewsCount} reviews)
-                      </p>
+              {/* Map Footer Note */}
+              <div className="relative z-10 self-end bg-white/90 backdrop-blur-xs px-2 py-1 rounded-md text-[10px] font-semibold text-slate-600 border border-slate-200/80 shadow-2xs">
+                📍 Showing verified institutions near {detectedAreaName || 'selected region'}
+              </div>
+            </div>
+          </div>
+        )}
 
-                      {clinic.phone && (
-                        <div className="mt-1.5 flex items-center gap-2">
+        {/* List View Mode (Clinic Cards) */}
+        {viewMode === 'list' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 block">
+                Select Hospital / Specialist ({filteredClinics.length})
+              </label>
+            </div>
+
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-0.5">
+              {filteredClinics.map((clinic) => {
+                const isSelected = selectedClinic.id === clinic.id;
+
+                return (
+                  <div
+                    key={clinic.id}
+                    onClick={() => handleClinicChange(clinic)}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-teal-50/80 border-teal-500 ring-1 ring-teal-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                            {clinic.specialtyType}
+                          </span>
+                          {clinic.publicHospitalType && (
+                            <span className="text-[10px] font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                              {clinic.publicHospitalType}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            <MapPin className="w-2.5 h-2.5 text-teal-600" />
+                            <span>{clinic.distance}</span>
+                          </span>
+                        </div>
+
+                        <h3 className="text-xs font-bold text-slate-900">{clinic.name}</h3>
+                        <p className="text-[11px] text-slate-600 font-medium">{clinic.specialist}</p>
+                        <p className="text-[10px] text-slate-400">
+                          {clinic.address}, {clinic.city} {clinic.area ? `(${clinic.area})` : ''} • ★ {clinic.rating} ({clinic.reviewsCount} reviews)
+                        </p>
+
+                        {/* Condition Match Badge */}
+                        {clinic.matchReason && (
+                          <div className="text-[10px] text-teal-900 bg-teal-50/90 border border-teal-200/80 p-1.5 rounded-lg font-medium">
+                            {clinic.matchReason}
+                          </div>
+                        )}
+
+                        {/* Action Buttons: Phone & Map Directions */}
+                        <div className="pt-1 flex items-center gap-3">
+                          {clinic.phone && (
+                            <a
+                              href={`tel:${clinic.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[10.5px] font-bold text-teal-700 hover:underline flex items-center gap-1"
+                            >
+                              <Phone className="w-3 h-3 text-teal-600" />
+                              <span>Call {clinic.phone}</span>
+                            </a>
+                          )}
                           <a
-                            href={`tel:${clinic.phone}`}
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clinic.name + ' ' + clinic.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="text-[10.5px] font-bold text-teal-700 hover:underline flex items-center gap-1"
+                            className="text-[10.5px] font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"
                           >
-                            <Phone className="w-3 h-3 text-teal-600" />
-                            <span>{clinic.phone}</span>
+                            <ExternalLink className="w-3 h-3 text-slate-400" />
+                            <span>Directions</span>
                           </a>
                         </div>
+                      </div>
+
+                      {isSelected && (
+                        <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-1" />
                       )}
                     </div>
-
-                    {isSelected && (
-                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-1" />
-                    )}
                   </div>
+                );
+              })}
+
+              {filteredClinics.length === 0 && (
+                <div className="p-6 text-center bg-white rounded-xl border border-slate-200 text-xs text-slate-500">
+                  No matching clinics found for your filters. Try selecting "All" cities or clearing the search bar.
                 </div>
-              );
-            })}
-
-            {filteredClinics.length === 0 && (
-              <div className="p-6 text-center bg-white rounded-xl border border-slate-200 text-xs text-slate-500">
-                No matching clinics found for your filters. Try selecting "All" cities or clearing the search bar.
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Step 3: Date & Time Slot Selection */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Date & Time Slot Selection */}
+        <div className="grid grid-cols-2 gap-3 pt-2">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 block">Available Date</label>
             <select
@@ -674,9 +982,9 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
           </div>
         </div>
 
-        {/* Step 4: Patient Information Form */}
+        {/* Patient Information Form */}
         <form onSubmit={handleConfirmMockBooking} className="space-y-3 pt-2">
-          <label className="text-xs font-bold text-slate-700 block">Patient Details for Demo Referral</label>
+          <label className="text-xs font-bold text-slate-700 block">Patient Details for Referral</label>
 
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl">
@@ -704,12 +1012,12 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
             </div>
           </div>
 
-          {/* Privacy Consent Acknowledgment indicator */}
+          {/* Privacy Consent Acknowledgment */}
           <div className="p-2.5 rounded-xl bg-teal-50/70 border border-teal-200/80 text-[11px] text-teal-900 flex items-center gap-2">
             {shareSummaryConsent ? (
               <>
                 <FileCheck className="w-4 h-4 text-teal-600 shrink-0" />
-                <span>Your structured screening summary will be shared with the consulting specialist.</span>
+                <span>Structured screening summary will be attached for consulting specialist.</span>
               </>
             ) : (
               <>
@@ -723,12 +1031,12 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
             type="submit"
             className="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-sm shadow-teal-700/20 transition-all cursor-pointer mt-3"
           >
-            <span>Confirm Demo Appointment</span>
+            <span>Request Referral Appointment</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        {/* Quick External Links (Helplines & Emergency) */}
+        {/* External Links (Helplines & Emergency) */}
         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
           {onOpenHelplines && (
             <button

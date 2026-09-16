@@ -12,8 +12,8 @@ export const MobileContainer: React.FC<MobileContainerProps> = ({ children, isFr
 
   if (!isFrameMode) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 md:p-6 font-sans">
-        <div className="w-full max-w-2xl min-h-screen md:min-h-[820px] md:h-[88vh] bg-white md:rounded-3xl md:shadow-xl md:border md:border-slate-200/80 overflow-hidden flex flex-col">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 md:p-6 font-sans transition-colors">
+        <div className="w-full max-w-2xl min-h-screen md:min-h-[820px] md:h-[88vh] bg-white text-slate-900 md:rounded-3xl md:shadow-xl md:border md:border-slate-200/80 overflow-hidden flex flex-col transition-colors">
           {children}
         </div>
       </div>
@@ -21,11 +21,11 @@ export const MobileContainer: React.FC<MobileContainerProps> = ({ children, isFr
   }
 
   return (
-    <div className="min-h-screen bg-slate-200 flex items-center justify-center p-0 sm:p-4 md:p-6 font-sans">
+    <div className="min-h-screen bg-slate-200 flex items-center justify-center p-0 sm:p-4 md:p-6 font-sans transition-colors">
       {/* Mobile Device Mockup Frame */}
-      <div className="w-full sm:max-w-[420px] h-screen sm:h-[860px] sm:max-h-[92vh] bg-white sm:rounded-[44px] sm:shadow-2xl sm:border-[8px] sm:border-slate-900 overflow-hidden flex flex-col relative ring-1 ring-slate-900/10">
+      <div className="w-full sm:max-w-[420px] h-screen sm:h-[860px] sm:max-h-[92vh] bg-white text-slate-900 sm:rounded-[44px] sm:shadow-2xl sm:border-[8px] sm:border-slate-900 overflow-hidden flex flex-col relative ring-1 ring-slate-900/10 transition-colors">
         {/* Dynamic Island / Speaker Notch for Smartphone realism on desktop */}
-        <div className="hidden sm:flex items-center justify-between px-6 pt-3 pb-1 bg-white select-none z-40 border-b border-slate-100">
+        <div className="hidden sm:flex items-center justify-between px-6 pt-3 pb-1 bg-white select-none z-40 border-b border-slate-100 transition-colors">
           <span className="text-xs font-semibold text-slate-800">{currentTime}</span>
           <div className="w-20 h-4 bg-slate-900 rounded-full mx-auto" />
           <div className="flex items-center gap-1.5 text-slate-700">
@@ -41,7 +41,7 @@ export const MobileContainer: React.FC<MobileContainerProps> = ({ children, isFr
         </div>
 
         {/* Virtual Home Bar on framed view */}
-        <div className="hidden sm:flex justify-center pb-2 pt-1 bg-white select-none">
+        <div className="hidden sm:flex justify-center pb-2 pt-1 bg-white select-none transition-colors">
           <div className="w-32 h-1 bg-slate-300 rounded-full" />
         </div>
       </div>

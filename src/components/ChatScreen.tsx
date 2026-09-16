@@ -81,6 +81,39 @@ interface ChatScreenProps {
   onOpenFollowUp?: () => void;
 }
 
+// Helper to ensure clean markdown string extraction from any Gemini JSON schema or raw text response
+const parseMessageContent = (content: string): string => {
+  if (!content) return '';
+  let text = content.trim();
+
+  // Handle raw JSON string if passed directly in message content
+  if (text.startsWith('{') && text.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.reply) {
+        return parsed.reply;
+      }
+    } catch {
+      // Proceed if not pure JSON
+    }
+  }
+
+  // Handle embedded JSON markdown code blocks
+  const jsonBlock = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (jsonBlock) {
+    try {
+      const parsed = JSON.parse(jsonBlock[1]);
+      if (parsed.reply) {
+        text = text.replace(jsonBlock[0], parsed.reply).trim();
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return text;
+};
+
 export const ChatScreen: React.FC<ChatScreenProps> = ({
   onCompleteScreening,
   indicators,
@@ -799,6 +832,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         {messages.map((msg, index) => {
           const isAssistant = msg.role === 'assistant';
           const isEmergency = msg.isEmergencyAlert;
+          const cleanContent = parseMessageContent(msg.content);
 
           return (
             <div
@@ -812,7 +846,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               >
                 {/* Avatar Icon */}
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5 shadow-2xs ${
+                  className={`w-7.5 h-7.5 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5 shadow-2xs transition-colors ${
                     isAssistant
                       ? isEmergency
                         ? 'bg-rose-600'
@@ -822,24 +856,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 >
                   {isAssistant ? (
                     isEmergency ? (
-                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <AlertTriangle className="w-4 h-4" />
                     ) : (
-                      <Bot className="w-3.5 h-3.5" />
+                      <Bot className="w-4 h-4" />
                     )
                   ) : (
-                    <User className="w-3.5 h-3.5" />
+                    <User className="w-4 h-4" />
                   )}
                 </div>
 
                 {/* Message Bubble Container */}
                 <div className="flex flex-col min-w-0">
                   <div
-                    className={`rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed shadow-2xs ${
+                    className={`rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed shadow-xs transition-colors ${
                       isAssistant
                         ? isEmergency
                           ? 'bg-rose-50 border-2 border-rose-300 text-rose-950 rounded-tl-xs'
                           : 'bg-white border border-slate-200/90 text-slate-800 rounded-tl-xs'
-                        : 'bg-teal-600 text-white rounded-tr-xs'
+                        : 'bg-teal-600 text-white rounded-tr-xs shadow-sm'
                     }`}
                   >
                     {/* Optional Image Preview inside Message */}
@@ -853,8 +887,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       </div>
                     )}
 
-                    <div className="prose prose-sm max-w-none text-xs sm:text-[13px] leading-relaxed break-words">
-                      <Markdown>{msg.content}</Markdown>
+                    <div
+                      className={`prose prose-sm max-w-none text-xs sm:text-[13px] leading-relaxed break-words ${
+                        isAssistant
+                          ? 'text-slate-800'
+                          : 'prose-user-bubble text-white'
+                      }`}
+                    >
+                      <Markdown>{cleanContent}</Markdown>
                     </div>
 
                     {isEmergency && (
@@ -1084,7 +1124,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       )}
 
       {/* Conversational Composer Bar */}
-      <div className="p-2.5 sm:p-3 bg-white border-t border-slate-200 shrink-0">
+      <div className="p-2.5 sm:p-3 bg-white border-t border-slate-200 shrink-0 transition-colors">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -1166,7 +1206,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               disabled={(!inputText.trim() && !pendingPhoto) || isTyping}
               className={`p-2.5 rounded-xl transition-all shrink-0 ${
                 (inputText.trim() || pendingPhoto) && !isTyping
-                  ? 'bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white shadow-xs cursor-pointer'
+                  ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-xs cursor-pointer'
                   : 'bg-slate-100 text-slate-300 cursor-not-allowed'
               }`}
               id="chat-send-button"
@@ -1180,15 +1220,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       {/* Interactive Mouth Map Modal */}
       {showMouthMap && (
-        <div className="absolute inset-0 z-50 bg-slate-100/95 backdrop-blur-xs flex flex-col p-3 overflow-y-auto">
-          <InteractiveMouthMap
-            confirmedLocation={indicators.primarySymptomLocation}
-            confirmedLocations={indicators.mouthMapLocations || []}
-            onConfirmMultipleLocations={handleConfirmMultipleLocationsFromMap}
-            onCancel={() => setShowMouthMap(false)}
-            onClose={() => setShowMouthMap(false)}
-            language={selectedLanguage}
-          />
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+          <div className="w-full max-w-2xl bg-slate-50 rounded-2xl shadow-2xl overflow-y-auto max-h-[80vh] flex flex-col p-3 sm:p-5 border border-slate-200">
+            <InteractiveMouthMap
+              confirmedLocation={indicators.primarySymptomLocation}
+              confirmedLocations={indicators.mouthMapLocations || []}
+              onConfirmMultipleLocations={handleConfirmMultipleLocationsFromMap}
+              onCancel={() => setShowMouthMap(false)}
+              onClose={() => setShowMouthMap(false)}
+              language={selectedLanguage}
+            />
+          </div>
         </div>
       )}
 

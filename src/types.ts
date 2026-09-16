@@ -259,6 +259,8 @@ export interface PatientProfile {
   reducedMouthOpening?: boolean; // OSMF / Trismus
   persistentHoarseness?: boolean;
   neckLumpOrSwelling?: boolean;
+  nonOralSymptoms?: boolean;
+  nonOralDetails?: string;
   progression?: 'improving' | 'worsening' | 'unchanged' | 'fluctuating';
 
   // Batch 1 Roadmap Extensions
@@ -448,6 +450,7 @@ export interface AssessmentResult {
   screeningConcern: ScreeningConcernLevel;
   careLevel?: CareLevel;
   recommendedProfessional?: string;
+  identifiedCondition?: string;
   concerns?: ClinicalConcern[];
   nextSteps?: string[];
   patientQuestions?: string[];
@@ -472,7 +475,7 @@ export interface ClinicProvider {
   id: string;
   name: string;
   specialist: string;
-  specialtyType: 'Dentist' | 'Oral & Maxillofacial Surgeon' | 'ENT Specialist' | 'Head & Neck Oncology';
+  specialtyType: 'General Dentist' | 'Periodontist' | 'Oral & Maxillofacial Specialist' | 'Oral & Maxillofacial Surgeon' | 'ENT Specialist' | 'Head & Neck Oncology' | 'Emergency Care' | 'Dentist';
   title: string;
   rating: number;
   reviewsCount: number;

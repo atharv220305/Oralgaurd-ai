@@ -96,6 +96,7 @@ export async function syncPatientToFirestore(
     }
   } catch (error) {
     console.warn('Firestore sync failed, stored in local cache instead:', error);
+    throw error;
   }
 }
 
@@ -104,7 +105,7 @@ export async function syncPatientToFirestore(
  */
 export async function loadPatientFromFirestore(
   patientId: string
-): Promise<{ profile: PatientProfile | null; latestAssessment: AssessmentResult | null }> {
+): Promise<{ profile: PatientProfile | null; latestAssessment: AssessmentResult | null; isOffline?: boolean }> {
   try {
     const patientDocRef = doc(db, 'patients', patientId);
     const docSnap = await getDoc(patientDocRef);
@@ -114,6 +115,7 @@ export async function loadPatientFromFirestore(
       return {
         profile: (data.profile as PatientProfile) || null,
         latestAssessment: (data.latestAssessment as AssessmentResult) || null,
+        isOffline: false,
       };
     }
   } catch (error) {
@@ -138,6 +140,7 @@ export async function loadPatientFromFirestore(
   return {
     profile: cachedProfile,
     latestAssessment: cachedAssessment,
+    isOffline: true,
   };
 }
 
