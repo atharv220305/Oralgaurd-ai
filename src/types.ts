@@ -492,6 +492,7 @@ export interface ClinicProvider {
   availableDates: string[];
   availableTimes: string[];
   badge: string;
+  matchReason?: string;
 }
 
 export interface HealthHelpline {

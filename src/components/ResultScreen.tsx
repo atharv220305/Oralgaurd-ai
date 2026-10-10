@@ -457,70 +457,70 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         </div>
 
         {/* Primary Screening Concern Level Card */}
+        {/* CARD 1: Urgency & Care Triage Level (Color-coded Hero Card) */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
-          className={`p-4 sm:p-5 rounded-2xl border ${concernConfig.themeBorder} ${concernConfig.themeBg} shadow-xs relative overflow-hidden`}
+          className={`p-4 sm:p-5 rounded-2xl border-2 ${concernConfig.themeBorder} ${concernConfig.themeBg} shadow-xs relative overflow-hidden space-y-3`}
         >
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between flex-wrap gap-2">
             <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 text-slate-600" />
+                <span>Clinical Triage Urgency Level</span>
+              </span>
               <span
-                className={`px-3 py-1 rounded-full text-white text-xs font-bold tracking-wide flex items-center gap-1.5 shadow-2xs ${concernConfig.badgeBg} w-fit`}
+                className={`px-3 py-1.5 rounded-full text-white text-xs font-bold tracking-wide flex items-center gap-1.5 shadow-sm ${concernConfig.badgeBg} w-fit`}
               >
-                <RiskIcon className="w-3.5 h-3.5" />
+                <RiskIcon className="w-4 h-4" />
                 {assessment.careLevel ? `CARE LEVEL: ${assessment.careLevel.toUpperCase()}` : screeningConcern}
               </span>
-              {assessment.recommendedProfessional && (
-                <div className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
-                  <Stethoscope className="w-3.5 h-3.5 text-teal-700" />
-                  <span>Recommended Provider: <strong className="text-teal-900">{assessment.recommendedProfessional}</strong></span>
-                </div>
-              )}
             </div>
-            <div className="flex items-center gap-1 text-slate-500 text-xs">
-              <Clock className="w-3.5 h-3.5" />
-              <span>{assessment.suggestedTimeframe || concernConfig.timeframe}</span>
+
+            <div className="flex items-center gap-1 text-xs font-bold bg-white/90 px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-2xs text-slate-800">
+              <Clock className="w-3.5 h-3.5 text-teal-600" />
+              <span>Timeframe: {assessment.suggestedTimeframe || concernConfig.timeframe}</span>
             </div>
           </div>
 
-          <p className="text-xs text-slate-700 mt-3 leading-relaxed">
+          <div className="p-3 bg-white/90 rounded-xl border border-slate-200/70 text-xs text-slate-800 leading-relaxed font-medium">
             {assessment.recommendation || concernConfig.subText}
-          </p>
+          </div>
 
-          <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Overall Concern: <strong className="uppercase text-slate-800">{screeningConcern}</strong></span>
-            <span>Non-Diagnostic Triage</span>
+          <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-600 font-semibold">
+            <span>Identified Assessment Category: <strong className="uppercase text-slate-900">{screeningConcern}</strong></span>
+            <span className="text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">Non-Diagnostic Triage</span>
           </div>
         </motion.div>
 
-        {/* Automatic Clinical Referral & Direct Specialty Provider Search Card */}
+        {/* CARD 2: Mapped Specialist Provider Card (Teal Gradient Theme) */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="bg-white p-4.5 rounded-2xl border border-teal-200/90 shadow-2xs space-y-3.5 bg-gradient-to-br from-teal-50/50 via-white to-emerald-50/30 relative overflow-hidden"
+          className="bg-white p-4.5 rounded-2xl border-2 border-teal-300 shadow-xs space-y-3.5 bg-gradient-to-br from-teal-50/60 via-white to-emerald-50/40 relative overflow-hidden"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <Stethoscope className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Stethoscope className="w-4.5 h-4.5" />
               </div>
               <div>
                 <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   {isHindi ? 'स्वचालित क्लिनिकल विशेषज्ञ मैपिंग' : isMarathi ? 'स्वयंचलित क्लिनिकल तज्ज्ञ मॅपिंग' : 'Mapped Clinical Specialty'}
                 </h2>
                 <p className="text-[10.5px] text-slate-500">
-                  {isHindi ? 'आपके लक्षणों के आधार पर स्वचालित अनुशंसित विशेषज्ञ' : isMarathi ? 'तुमच्या लक्षणांनुसार सुचवलेले तज्ज्ञ' : 'Automatically mapped based on reported oral symptoms'}
+                  {isHindi ? 'आपके लक्षणों के आधार पर अनुशंसित विशेषज्ञ श्रेणी' : isMarathi ? 'लक्षणांनुसार सुचवलेले तज्ज्ञ' : 'Recommended medical category for your specific concern'}
                 </p>
               </div>
             </div>
-            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-2xs shrink-0 ${specialtyInfo.badgeBg}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold border shadow-xs shrink-0 ${specialtyInfo.badgeBg}`}>
               {specialtyInfo.title}
             </span>
           </div>
 
-          <div className="p-3 bg-white/90 rounded-xl border border-teal-100 text-[11px] text-slate-700 space-y-1">
+          <div className="p-3 bg-white rounded-xl border border-teal-200 text-[11px] text-slate-700 space-y-1 shadow-2xs">
             <div className="flex items-center gap-1.5 font-bold text-teal-900">
               <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
               <span>
@@ -532,49 +532,62 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             </p>
           </div>
 
-          {/* Provider Search Button - Direct specialty filter without manual entry */}
+          {/* Provider Search Button - Direct specialty filter */}
           <button
             type="button"
             onClick={handleInitiateBooking}
             id="btn-search-specialty-providers-card"
-            className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-between shadow-xs shadow-teal-700/20 transition-all cursor-pointer group"
+            className="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm shadow-teal-700/20 transition-all cursor-pointer group"
           >
             <div className="flex items-center gap-2">
-              <Hospital className="w-4 h-4 text-teal-200 shrink-0" />
+              <Hospital className="w-4.5 h-4.5 text-teal-200 shrink-0" />
               <span>{specialtyInfo.buttonText}</span>
             </div>
-            <div className="flex items-center gap-1 bg-teal-700/60 px-2 py-0.5 rounded-md text-[10.5px] text-teal-100 font-semibold group-hover:bg-teal-800 transition-colors">
+            <div className="flex items-center gap-1 bg-teal-700/70 px-2.5 py-1 rounded-md text-[11px] text-teal-100 font-semibold group-hover:bg-teal-800 transition-colors">
               <span>Auto-Filtered</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </div>
           </button>
         </motion.div>
 
-        {/* Identified Clinical Concerns (Multi-concern model) */}
-        {assessment.concerns && assessment.concerns.length > 0 && (
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-teal-600" />
-                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  {isHindi ? 'पहचाने गए मुख्य लक्षण व चिंताएँ' : isMarathi ? 'आढळून आलेली मुख्य लक्षणे व चिंता' : 'Identified Oral Health Concerns'}
-                </h2>
+        {/* CARD 3: Key Clinical Findings & Identified Concerns (Slate/Amber Card) */}
+        <div className="bg-white p-4 sm:p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-3.5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 font-bold text-xs">
+                🔍
               </div>
-              <span className="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded text-slate-600">
-                {assessment.concerns.length} {assessment.concerns.length === 1 ? 'Concern' : 'Concerns'}
-              </span>
+              <div>
+                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  {isHindi ? 'नैदानिक निष्कर्ष व चिन्ह' : isMarathi ? 'वैद्यकीय निष्कर्ष व लक्षणे' : 'Key Clinical Findings & Symptoms'}
+                </h2>
+                <p className="text-[10.5px] text-slate-500">
+                  {isHindi ? 'फ्लैग किए गए लक्षण, जोखिम कारक और सुरक्षात्मक कारक' : isMarathi ? 'लक्षणे व जोखीम घटक' : 'Categorized by risk impact and protective oral habits'}
+                </p>
+              </div>
             </div>
+            {assessment.concerns && assessment.concerns.length > 0 && (
+              <span className="text-[10px] bg-slate-100 border border-slate-200 font-bold px-2 py-0.5 rounded text-slate-700">
+                {assessment.concerns.length} Identified {assessment.concerns.length === 1 ? 'Condition' : 'Conditions'}
+              </span>
+            )}
+          </div>
 
-            <div className="space-y-2.5">
+          {/* Identified Oral Health Concerns List */}
+          {assessment.concerns && assessment.concerns.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">
+                Primary Oral Lesions & Symptoms
+              </span>
               {assessment.concerns.map((concern, idx) => (
                 <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-teal-600" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-teal-600 shrink-0" />
                       <span className="text-xs font-bold text-slate-900">{concern.title}</span>
                     </div>
                     {concern.locations && concern.locations.length > 0 && (
-                      <span className="text-[10px] text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] text-slate-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-medium">
                         {concern.locations.join(', ')}
                       </span>
                     )}
@@ -583,7 +596,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                     {concern.description}
                   </p>
                   {concern.recommendedNextStep && (
-                    <div className="text-[10.5px] text-teal-800 bg-teal-50/70 p-1.5 rounded-lg border border-teal-100 flex items-center gap-1">
+                    <div className="text-[10.5px] text-teal-800 bg-teal-50/80 p-1.5 rounded-lg border border-teal-100 flex items-center gap-1 font-medium">
                       <Info className="w-3 h-3 text-teal-600 shrink-0" />
                       <span>{concern.recommendedNextStep}</span>
                     </div>
@@ -591,46 +604,167 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Key Clinical Findings & Protective Factors */}
-        {assessment.keyFindings && assessment.keyFindings.length > 0 && (
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Info className="w-4 h-4 text-teal-600" />
-              <span>{isHindi ? 'नैदानिक निष्कर्ष' : isMarathi ? 'वैद्यकीय निष्कर्ष' : 'Key Clinical Findings'}</span>
-            </h2>
-
-            <div className="space-y-2">
-              {assessment.keyFindings.map((finding, idx) => (
-                <div key={idx} className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-start gap-2">
-                  <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${finding.impact === 'flag' ? 'bg-rose-500' : finding.impact === 'moderate' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                  <div>
-                    <strong className="text-slate-900 block">{finding.title}</strong>
-                    <span className="text-[11px] text-slate-600 leading-relaxed">{finding.description}</span>
+          {/* Key Clinical Findings List */}
+          {assessment.keyFindings && assessment.keyFindings.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">
+                Flagged Risk Factors & Observations
+              </span>
+              <div className="space-y-1.5">
+                {assessment.keyFindings.map((finding, idx) => (
+                  <div key={idx} className="text-xs text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70 flex items-start gap-2">
+                    <div
+                      className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${
+                        finding.impact === 'flag'
+                          ? 'bg-rose-500 ring-2 ring-rose-200'
+                          : finding.impact === 'moderate'
+                          ? 'bg-amber-500 ring-2 ring-amber-200'
+                          : 'bg-emerald-500'
+                      }`}
+                    />
+                    <div>
+                      <strong className="text-slate-900 block font-semibold">{finding.title}</strong>
+                      <span className="text-[11px] text-slate-600 leading-relaxed">{finding.description}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Protective Factors Section */}
+          {assessment.protectiveFactors && assessment.protectiveFactors.length > 0 && (
+            <div className="pt-2.5 border-t border-slate-100 space-y-1.5 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
+              <span className="text-[10.5px] font-bold text-emerald-800 uppercase tracking-wider block flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{isHindi ? 'सकारात्मक सुरक्षात्मक कारक' : isMarathi ? 'सकारात्मक संरक्षणात्मक घटक' : 'Reported Protective Factors'}</span>
+              </span>
+              <ul className="space-y-1">
+                {assessment.protectiveFactors.map((fact, idx) => (
+                  <li key={idx} className="text-[11px] text-emerald-950 font-medium flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
+                    <span>{fact}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* CARD 4: Recommended Next Steps & Patient Checklist (Indigo/Blue Card) */}
+        <div className="bg-indigo-50/70 p-4 sm:p-4.5 rounded-2xl border border-indigo-200 shadow-2xs space-y-3.5">
+          <div className="flex items-center justify-between border-b border-indigo-100 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 font-bold text-xs shadow-2xs">
+                📋
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  {isHindi ? 'अनुशंसित अगले कदम' : isMarathi ? 'पुढील महत्त्वाचे टप्पे' : 'Recommended Next Steps'}
+                </h2>
+                <p className="text-[10.5px] text-indigo-700">
+                  {isHindi ? 'आपके स्वास्थ्य के लिए अनुशंसित कार्ययोजना' : isMarathi ? 'आरोग्यासाठी आवश्यक पायऱ्या' : 'Step-by-step guidance for your clinical evaluation'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-2.5 bg-white p-3 rounded-xl border border-indigo-100 shadow-2xs">
+              <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                1
+              </span>
+              <div>
+                <strong className="text-xs font-bold text-slate-900 block">
+                  Book Clinical Evaluation with Mapped Specialist ({specialtyInfo.title})
+                </strong>
+                <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                  Schedule an in-person visual and tactile oral mucosal exam within the suggested timeframe ({assessment.suggestedTimeframe || '7-14 days'}).
+                </p>
+              </div>
             </div>
 
-            {assessment.protectiveFactors && assessment.protectiveFactors.length > 0 && (
-              <div className="pt-2 border-t border-slate-100 space-y-1">
-                <span className="text-[10.5px] font-bold text-emerald-800 uppercase tracking-wider block">
-                  {isHindi ? 'सकारात्मक सुरक्षात्मक कारक' : isMarathi ? 'सकारात्मक संरक्षणात्मक घटक' : 'Reported Protective Factors'}
+            <div className="flex items-start gap-2.5 bg-white p-3 rounded-xl border border-indigo-100 shadow-2xs">
+              <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                2
+              </span>
+              <div>
+                <strong className="text-xs font-bold text-slate-900 block">
+                  Share Structured Doctor Screening Note
+                </strong>
+                <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                  Provide your generated screening summary (symptoms, duration, tobacco exposures) to pre-inform your clinical provider.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 bg-white p-3 rounded-xl border border-indigo-100 shadow-2xs">
+              <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                3
+              </span>
+              <div>
+                <strong className="text-xs font-bold text-slate-900 block">
+                  Set 14-Day Lesion Recheck Reminder
+                </strong>
+                <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                  If the sore/white patch persists unchanged beyond 14 days without healing, follow up promptly for diagnostic evaluation.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Collapsible Questions for Your Dental/Medical Visit */}
+          <div className="bg-white rounded-xl border border-indigo-200 overflow-hidden shadow-2xs">
+            <button
+              onClick={() => setShowQuestionsForDentist(!showQuestionsForDentist)}
+              className="w-full p-3 text-left flex items-center justify-between text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <Stethoscope className="w-4 h-4 text-indigo-600" />
+                <span>
+                  {isHindi
+                    ? 'डॉक्टर / दंत चिकित्सक से पूछने योग्य अनुशंसित प्रश्न'
+                    : isMarathi
+                    ? 'डॉक्टर / दंतवैद्यांना विचारण्यासाठी महत्त्वाचे प्रश्न'
+                    : 'Recommended Questions for Your Doctor / Dentist'}
                 </span>
-                <ul className="space-y-1">
-                  {assessment.protectiveFactors.map((fact, idx) => (
-                    <li key={idx} className="text-[11px] text-emerald-900 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>{fact}</span>
-                    </li>
-                  ))}
+              </span>
+              {showQuestionsForDentist ? (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+
+            {showQuestionsForDentist && (
+              <div className="px-4 pb-3.5 text-[11px] text-slate-600 space-y-2 border-t border-slate-100 pt-2.5">
+                <p>
+                  {isHindi
+                    ? 'जब आप अपने डेंटिस्ट या ईएनटी विशेषज्ञ से मिलें, तो ये प्रश्न अवश्य पूछें:'
+                    : isMarathi
+                    ? 'जेव्हा तुम्ही तुमच्या दंतवैद्य किंवा ईएनटी डॉक्टरांकडे जाल, तेव्हा हे प्रश्न नक्की विचारा:'
+                    : 'When you visit your dentist or ENT specialist, consider asking:'}
+                </p>
+                <ul className="list-disc list-inside space-y-1.5 text-slate-700 pl-1">
+                  {assessment.patientQuestions && assessment.patientQuestions.length > 0 ? (
+                    assessment.patientQuestions.map((q, idx) => (
+                      <li key={idx}>{q}</li>
+                    ))
+                  ) : (
+                    <>
+                      <li>Could you perform a complete soft-tissue inspection of my tongue, floor of mouth, and cheeks?</li>
+                      <li>Does this lesion look like a benign traumatic ulcer, or could it be precancerous?</li>
+                      <li>Should we follow up in 10-14 days to see if the sore has healed?</li>
+                      <li>Is a diagnostic biopsy, toluidine blue stain, or specialist referral recommended?</li>
+                    </>
+                  )}
                 </ul>
               </div>
             )}
           </div>
-        )}
+        </div>
 
         {/* Quick Access Tools: Ask OralGuard, Follow-up & Reminders, Hub */}
         <div className="grid grid-cols-2 gap-2">

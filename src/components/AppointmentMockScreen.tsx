@@ -807,50 +807,303 @@ export const AppointmentMockScreen: React.FC<AppointmentMockScreenProps> = ({
           </div>
         </div>
 
-        {/* Map View Mode */}
+        {/* Map View Mode - Visual Proximity Map Component */}
         {viewMode === 'map' && (
-          <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span>Interactive Provider Location Map</span>
-              <span className="text-[10px] text-slate-500 font-normal">Click pin to select provider</span>
+          <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 font-bold text-xs">
+                  🗺️
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    {isHindi ? 'निकटता आधारित दृश्य मानचित्र' : 'Specialist & Hospital Proximity Map'}
+                  </h3>
+                  <p className="text-[10.5px] text-slate-500">
+                    {isHindi ? 'विशेषज्ञता व दूरी के अनुसार निकटतम अस्पताल मानचित्र' : `Showing ${filteredClinics.length} clinics matching "${selectedSpecialty}"`}
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                Interactive Radar
+              </span>
             </div>
 
-            {/* Visual Simulated Map Container */}
-            <div className="w-full h-56 bg-slate-100 rounded-xl relative overflow-hidden border border-slate-200 p-2 flex flex-col justify-between bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px]">
-              {/* Map Pin Overlay Grid */}
-              <div className="absolute inset-0 p-4 grid grid-cols-3 gap-3 pointer-events-none">
-                {filteredClinics.slice(0, 6).map((clinic, idx) => {
+            {/* Specialty Pins Legend Filter */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[10px] font-semibold border-b border-slate-100 pt-0.5">
+              <span className="text-slate-400 shrink-0 font-medium">Filter Map:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedSpecialty('All')}
+                className={`px-2 py-0.5 rounded-full border transition-all shrink-0 cursor-pointer ${
+                  selectedSpecialty === 'All'
+                    ? 'bg-slate-900 text-white border-slate-900 font-bold'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                All ({MOCK_CLINICS.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSpecialty('Emergency Care')}
+                className={`px-2 py-0.5 rounded-full border transition-all shrink-0 cursor-pointer ${
+                  selectedSpecialty === 'Emergency Care'
+                    ? 'bg-rose-700 text-white border-rose-700 font-bold'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+                }`}
+              >
+                🔴 Emergency
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSpecialty('Periodontist')}
+                className={`px-2 py-0.5 rounded-full border transition-all shrink-0 cursor-pointer ${
+                  selectedSpecialty === 'Periodontist'
+                    ? 'bg-emerald-700 text-white border-emerald-700 font-bold'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                🟢 Periodontist
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSpecialty('Oral & Maxillofacial Specialist')}
+                className={`px-2 py-0.5 rounded-full border transition-all shrink-0 cursor-pointer ${
+                  selectedSpecialty.includes('Maxillofacial')
+                    ? 'bg-purple-700 text-white border-purple-700 font-bold'
+                    : 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100'
+                }`}
+              >
+                🟣 Maxillofacial
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSpecialty('ENT Specialist')}
+                className={`px-2 py-0.5 rounded-full border transition-all shrink-0 cursor-pointer ${
+                  selectedSpecialty.includes('ENT')
+                    ? 'bg-blue-700 text-white border-blue-700 font-bold'
+                    : 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
+                }`}
+              >
+                🔵 ENT
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSpecialty('General Dentist')}
+                className={`px-2 py-0.5 rounded-full border transition-all shrink-0 cursor-pointer ${
+                  selectedSpecialty.includes('Dentist')
+                    ? 'bg-teal-700 text-white border-teal-700 font-bold'
+                    : 'bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100'
+                }`}
+              >
+                🩵 Dentist
+              </button>
+            </div>
+
+            {/* Visual Radar Map Canvas Container */}
+            <div className="w-full h-72 bg-slate-900 rounded-xl relative overflow-hidden border border-slate-800 p-3 flex flex-col justify-between shadow-inner select-none">
+              {/* Topographic Radar Grid Overlay */}
+              <div
+                className="absolute inset-0 opacity-20 pointer-events-none"
+                style={{
+                  backgroundImage: 'radial-gradient(#38bdf8 1px, transparent 1px), linear-gradient(to right, #1e293b 1px, transparent 1px), linear-gradient(to bottom, #1e293b 1px, transparent 1px)',
+                  backgroundSize: '24px 24px, 24px 24px, 24px 24px',
+                }}
+              />
+
+              {/* Concentric Radar Distance Rings */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-24 h-24 rounded-full border border-teal-500/20 animate-pulse" />
+                <div className="w-48 h-48 rounded-full border border-teal-500/15 absolute" />
+                <div className="w-64 h-64 rounded-full border border-teal-500/10 absolute" />
+              </div>
+
+              {/* Radar Scale & Compass Overlay */}
+              <div className="relative z-10 flex items-center justify-between text-[9px] font-mono font-bold text-slate-400">
+                <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/80 backdrop-blur-xs">
+                  <LocateFixed className="w-3 h-3 text-teal-400 animate-spin" style={{ animationDuration: '6s' }} />
+                  <span>CENTER: {detectedAreaName || 'YOU (USER LOCATION)'}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/80 backdrop-blur-xs">
+                  <span className="text-teal-400">RADAR SCALE: 1 km – 15 km</span>
+                  <span className="text-slate-500">N ↑</span>
+                </div>
+              </div>
+
+              {/* Central User Location Pin */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-teal-500/20 border border-teal-400/50 flex items-center justify-center animate-ping absolute" />
+                <div className="w-6 h-6 rounded-full bg-teal-500 text-slate-900 flex items-center justify-center font-bold text-xs shadow-lg shadow-teal-500/50 z-10 border-2 border-white">
+                  📍
+                </div>
+                <span className="mt-1 px-1.5 py-0.5 bg-slate-900/90 text-teal-300 rounded text-[9px] font-bold border border-teal-500/40 backdrop-blur-xs shadow-sm whitespace-nowrap">
+                  YOU ARE HERE
+                </span>
+              </div>
+
+              {/* SVG Connecting Route Line to Selected Clinic */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                {(() => {
+                  const selIdx = filteredClinics.findIndex((c) => c.id === selectedClinic.id);
+                  if (selIdx === -1) return null;
+                  const total = Math.min(filteredClinics.length, 8);
+                  const angle = ((selIdx % total) / total) * 2 * Math.PI - Math.PI / 2;
+                  const radiusPct = 28 + (selIdx % 3) * 12;
+                  // Center in % is 50, 50
+                  const targetX = 50 + radiusPct * Math.cos(angle);
+                  const targetY = 50 + radiusPct * Math.sin(angle);
+
+                  return (
+                    <line
+                      x1="50%"
+                      y1="50%"
+                      x2={`${targetX}%`}
+                      y2={`${targetY}%`}
+                      stroke="#2dd4bf"
+                      strokeWidth="2"
+                      strokeDasharray="4 4"
+                      className="animate-pulse"
+                    />
+                  );
+                })()}
+              </svg>
+
+              {/* Proximity Clinic Pins Plot */}
+              <div className="absolute inset-0 z-20 pointer-events-none">
+                {filteredClinics.slice(0, 8).map((clinic, idx) => {
                   const isSel = selectedClinic.id === clinic.id;
+                  const total = Math.min(filteredClinics.length, 8);
+                  const angle = ((idx % total) / total) * 2 * Math.PI - Math.PI / 2;
+                  const radiusPct = 28 + (idx % 3) * 12;
+                  const leftPct = 50 + radiusPct * Math.cos(angle);
+                  const topPct = 50 + radiusPct * Math.sin(angle);
+
+                  // Pin styling based on specialty
+                  let pinBg = 'bg-teal-500 text-slate-950 border-white';
+                  let badgeColor = 'bg-teal-900/90 text-teal-200 border-teal-500/40';
+                  const type = (clinic.specialtyType || '').toLowerCase();
+
+                  if (type.includes('emergency') || clinic.name.toLowerCase().includes('hospital')) {
+                    pinBg = 'bg-rose-500 text-white border-white';
+                    badgeColor = 'bg-rose-950/90 text-rose-200 border-rose-500/40';
+                  } else if (type.includes('periodont')) {
+                    pinBg = 'bg-emerald-500 text-slate-950 border-white';
+                    badgeColor = 'bg-emerald-950/90 text-emerald-200 border-emerald-500/40';
+                  } else if (type.includes('maxillofacial') || type.includes('surgeon')) {
+                    pinBg = 'bg-purple-500 text-white border-white';
+                    badgeColor = 'bg-purple-950/90 text-purple-200 border-purple-500/40';
+                  } else if (type.includes('ent')) {
+                    pinBg = 'bg-blue-500 text-white border-white';
+                    badgeColor = 'bg-blue-950/90 text-blue-200 border-blue-500/40';
+                  }
+
                   return (
                     <button
                       key={clinic.id}
                       type="button"
                       onClick={() => handleClinicChange(clinic)}
-                      className={`pointer-events-auto p-1.5 rounded-xl border text-left transition-all shadow-xs cursor-pointer flex flex-col justify-between ${
-                        isSel
-                          ? 'bg-teal-600 text-white border-teal-700 ring-2 ring-teal-400 scale-105 z-10'
-                          : 'bg-white/95 text-slate-800 border-slate-200 hover:bg-slate-50'
+                      style={{ left: `${leftPct}%`, top: `${topPct}%` }}
+                      className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 transition-all cursor-pointer group flex flex-col items-center ${
+                        isSel ? 'scale-125 z-30' : 'scale-100 opacity-90 hover:opacity-100 hover:scale-110'
                       }`}
                     >
-                      <div className="flex items-center gap-1 text-[10px] font-bold truncate">
-                        <MapPin className={`w-3 h-3 shrink-0 ${isSel ? 'text-white' : 'text-teal-600'}`} />
-                        <span className="truncate">{clinic.name}</span>
+                      {/* Pulse Ring for Selected */}
+                      {isSel && (
+                        <div className="w-8 h-8 rounded-full bg-teal-400/30 border border-teal-300 animate-ping absolute -inset-1" />
+                      )}
+
+                      {/* Map Marker Pin */}
+                      <div
+                        className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shadow-lg border-2 transition-transform ${pinBg} ${
+                          isSel ? 'ring-2 ring-teal-300 ring-offset-2 ring-offset-slate-900 scale-110' : ''
+                        }`}
+                      >
+                        <Building className="w-3 h-3" />
                       </div>
-                      <span className={`text-[9px] mt-1 px-1 rounded font-semibold w-fit ${
-                        isSel ? 'bg-teal-800 text-teal-100' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {clinic.distance}
-                      </span>
+
+                      {/* Label Chip */}
+                      <div
+                        className={`mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold border backdrop-blur-md shadow-md max-w-[110px] truncate transition-colors ${badgeColor} ${
+                          isSel ? 'ring-1 ring-white/50' : ''
+                        }`}
+                      >
+                        {clinic.name.split(' ')[0]} ({clinic.distance})
+                      </div>
                     </button>
                   );
                 })}
               </div>
 
-              {/* Map Footer Note */}
-              <div className="relative z-10 self-end bg-white/90 backdrop-blur-xs px-2 py-1 rounded-md text-[10px] font-semibold text-slate-600 border border-slate-200/80 shadow-2xs">
-                📍 Showing verified institutions near {detectedAreaName || 'selected region'}
+              {/* Bottom Canvas Footer Note */}
+              <div className="relative z-10 flex items-center justify-between text-[10px] font-medium text-slate-300 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/80 backdrop-blur-xs">
+                <span>📍 Plotting {filteredClinics.length} verified centers near {detectedAreaName || 'your location'}</span>
+                <span className="text-teal-400 font-bold">Click any pin to view details</span>
               </div>
             </div>
+
+            {/* Selected Clinic Interactive Detail Card */}
+            {selectedClinic && (
+              <motion.div
+                key={selectedClinic.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 bg-slate-50 border border-teal-200 rounded-xl space-y-2 shadow-2xs"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold text-teal-800 bg-teal-100 px-1.5 py-0.5 rounded border border-teal-200">
+                        {selectedClinic.specialtyType}
+                      </span>
+                      {selectedClinic.publicHospitalType && (
+                        <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">
+                          {selectedClinic.publicHospitalType}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-0.5">
+                        <MapPin className="w-2.5 h-2.5 text-teal-600" />
+                        <span>{selectedClinic.distance}</span>
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs font-bold text-slate-900 mt-1">{selectedClinic.name}</h4>
+                    <p className="text-[11px] text-slate-600 font-medium">{selectedClinic.specialist}</p>
+                    <p className="text-[10px] text-slate-500">
+                      {selectedClinic.address}, {selectedClinic.city} • ★ {selectedClinic.rating} ({selectedClinic.reviewsCount} reviews)
+                    </p>
+                  </div>
+
+                  <CheckCircle2 className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
+                </div>
+
+                {selectedClinic.matchReason && (
+                  <div className="text-[10px] text-teal-900 bg-teal-100/70 p-1.5 rounded-lg border border-teal-200 font-medium">
+                    {selectedClinic.matchReason}
+                  </div>
+                )}
+
+                <div className="pt-1 flex items-center gap-2">
+                  {selectedClinic.phone && (
+                    <a
+                      href={`tel:${selectedClinic.phone}`}
+                      className="py-1.5 px-2.5 bg-white hover:bg-teal-50 border border-teal-200 text-teal-800 rounded-lg text-[11px] font-bold flex items-center gap-1"
+                    >
+                      <Phone className="w-3 h-3 text-teal-600" />
+                      <span>Call Center</span>
+                    </a>
+                  )}
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedClinic.name + ' ' + selectedClinic.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-1.5 px-2.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3 h-3 text-slate-500" />
+                    <span>Get Directions</span>
+                  </a>
+                </div>
+              </motion.div>
+            )}
           </div>
         )}
 
