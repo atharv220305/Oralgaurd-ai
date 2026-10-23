@@ -147,6 +147,49 @@ export interface FollowUpItem {
   mouthLocation?: string;
 }
 
+// 3D Oral Map & Dental FDI Anatomy Types
+export type ToothQuadrant = 'upper_right' | 'upper_left' | 'lower_left' | 'lower_right';
+export type ToothType = 'incisor_central' | 'incisor_lateral' | 'canine' | 'premolar' | 'molar';
+
+export interface ToothSymptomReport {
+  id: string; // FDI number e.g. '16', '21'
+  toothNumber: string; // FDI format e.g. '16'
+  universalNumber?: string; // e.g. '#3'
+  quadrant: ToothQuadrant;
+  toothName: string;
+  toothNameHi?: string;
+  toothNameMr?: string;
+  isMissing?: boolean;
+  painSeverity: 'none' | 'mild' | 'moderate' | 'severe' | 'very_severe';
+  painPattern?: 'constant' | 'intermittent' | 'hot_cold_trigger' | 'chewing_trigger' | 'spontaneous' | 'sharp' | 'dull' | 'throbbing';
+  duration?: 'started_today' | 'few_days' | 'about_week' | 'several_weeks' | 'several_months' | 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month';
+  sensitivity?: 'none' | 'cold' | 'hot' | 'sweet' | 'both';
+  discoloration?: 'none' | 'black_brown' | 'white' | 'dark' | 'yellowish';
+  visibleDamage?: 'none' | 'cavity' | 'chipped' | 'loose' | 'fracture' | 'normal' | 'discolored' | 'other';
+  bleeding?: boolean;
+  swelling?: boolean;
+  pusOrDischarge?: boolean;
+  looseTooth?: boolean;
+  difficultyChewing?: boolean;
+  notes?: string;
+  reportedAt: string;
+}
+
+export interface OralStructureSymptomReport {
+  id: string;
+  structureId: string;
+  structureName: string;
+  structureNameHi?: string;
+  structureNameMr?: string;
+  symptomType: 'sore_ulcer' | 'white_red_patch' | 'swelling' | 'bleeding' | 'pain_burning' | 'roughness' | 'other';
+  painSeverity: 'none' | 'mild' | 'moderate' | 'severe';
+  duration?: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month';
+  isBleeding?: boolean;
+  isGrowing?: boolean;
+  notes?: string;
+  reportedAt: string;
+}
+
 // Batch 2: Tobacco & Areca Cessation Types
 export type TobaccoUseStatus = 'current' | 'reduced' | 'quit' | 'never' | 'unknown';
 export type CessationGoal = 'reduce' | 'quit' | 'learn_more' | 'none' | 'unknown';
@@ -267,6 +310,9 @@ export interface PatientProfile {
   photoDocumentation?: PhotoDocumentationItem[];
   mouthMapLocations?: MouthMapLocationItem[];
   symptomProgress?: SymptomProgressEntry[];
+  toothConcerns?: ToothSymptomReport[];
+  oralStructureConcerns?: OralStructureSymptomReport[];
+  missingTeeth?: string[];
 
   // Batch 2 Roadmap Extensions
   tobaccoUse?: TobaccoCessationPlan;

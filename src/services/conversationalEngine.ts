@@ -25,6 +25,7 @@ import {
   SymptomProgressEntry,
   MouthMapLocationItem,
   ClinicalConcern,
+  ToothSymptomReport,
 } from '../types';
 import {
   INITIAL_BOT_MESSAGE_EN,
@@ -757,13 +758,15 @@ Patient's latest message: "${content}"`,
 }
 
 /**
- * Updates the canonical screening session with multiple confirmed locations from the Mouth Map
+ * Updates the canonical screening session with multiple confirmed locations and tooth symptoms from the Mouth Map
  */
 export function applyMouthMapLocationsToSession(
   session: ScreeningSession,
   regions: OralRegion[],
   targetConcernId?: string | null,
-  language: AppLanguage = 'en'
+  language: AppLanguage = 'en',
+  toothSymptoms?: ToothSymptomReport[],
+  missingTeeth?: string[]
 ): {
   updatedSession: ScreeningSession;
   summaryMessage: string;
@@ -787,15 +790,73 @@ export function applyMouthMapLocationsToSession(
         confirmed: true,
       }));
 
-  const locationNames = isUnknown ? 'Not sure / Unspecified' : regions.map((r) => r.name).join(', ');
+  // Append tooth locations to location items if reported
+  if (toothSymptoms && toothSymptoms.length > 0) {
+    toothSymptoms.forEach((t) => {
+      locationItems.push({
+        id: `tooth_${t.toothNumber}`,
+        area: `Tooth ${t.toothNumber} (${t.toothName})`,
+        hindiName: `दांत ${t.toothNumber}`,
+        marathiName: `दात ${t.toothNumber}`,
+        confirmed: true,
+      });
+    });
+  }
+
+  const regionNames = isUnknown ? 'Not sure / Unspecified' : regions.map((r) => r.name).join(', ');
+  const toothNames = toothSymptoms && toothSymptoms.length > 0
+    ? toothSymptoms.map((t) => `Tooth ${t.toothNumber}`).join(', ')
+    : '';
+
+  const locationNames = [regionNames, toothNames].filter(Boolean).join('; ') || 'Oral Cavity';
   const regionIds = isUnknown ? [] : regions.map((r) => r.id);
 
-  let updatedConcerns = session.profile.concerns ? [...session.profile.concerns] : undefined;
-  let targetConcern = updatedConcerns?.find((c) => c.id === targetConcernId);
+  let updatedConcerns = session.profile.concerns ? [...session.profile.concerns] : [];
+  let targetConcern = updatedConcerns.find((c) => c.id === targetConcernId);
 
   if (targetConcern) {
     targetConcern.locations = isUnknown ? [] : regions.map((r) => r.name);
     targetConcern.lastUpdatedAt = Date.now();
+  }
+
+  // Create or update clinical concern for reported teeth if severe/moderate symptoms exist
+  if (toothSymptoms && toothSymptoms.length > 0) {
+    toothSymptoms.forEach((ts) => {
+      const existingConcern = updatedConcerns.find((c) => c.id === `tooth_concern_${ts.toothNumber}`);
+      const rawDur = ts.duration || 'less_than_2_weeks';
+      const durationCategory: 'less_than_2_weeks' | 'two_to_four_weeks' | 'more_than_one_month' | 'unknown' =
+        rawDur === 'several_weeks' || rawDur === 'two_to_four_weeks'
+          ? 'two_to_four_weeks'
+          : rawDur === 'several_months' || rawDur === 'more_than_one_month'
+          ? 'more_than_one_month'
+          : 'less_than_2_weeks';
+      const durationOverTwoWeeks = durationCategory !== 'less_than_2_weeks';
+
+      if (existingConcern) {
+        existingConcern.description = `${ts.toothName} (${ts.toothNumber}) - Pain: ${ts.painSeverity}, ${ts.visibleDamage !== 'none' ? ts.visibleDamage : 'Sensitivity'}`;
+        existingConcern.severity = ts.painSeverity === 'severe' || ts.painSeverity === 'very_severe' ? 'severe' : ts.painSeverity === 'moderate' ? 'moderate' : 'mild';
+        existingConcern.duration = durationCategory;
+        existingConcern.durationCategory = durationCategory;
+        existingConcern.durationOverTwoWeeks = durationOverTwoWeeks;
+        existingConcern.lastUpdatedAt = Date.now();
+      } else {
+        updatedConcerns.push({
+          id: `tooth_concern_${ts.toothNumber}`,
+          type: ts.visibleDamage === 'cavity' ? 'tooth_decay_cavity' : ts.sensitivity !== 'none' ? 'tooth_sensitivity' : 'tooth_pain',
+          title: `Tooth ${ts.toothNumber} (${ts.toothName})`,
+          description: `${ts.toothName} (${ts.toothNumber}): Pain ${ts.painSeverity}, sensitivity to ${ts.sensitivity}, damage: ${ts.visibleDamage}`,
+          locations: [`Tooth ${ts.toothNumber} (${ts.toothName})`],
+          duration: durationCategory,
+          durationCategory: durationCategory,
+          durationOverTwoWeeks: durationOverTwoWeeks,
+          severity: ts.painSeverity === 'severe' || ts.painSeverity === 'very_severe' ? 'severe' : ts.painSeverity === 'moderate' ? 'moderate' : 'mild',
+          pain: ts.painSeverity !== 'none',
+          bleeding: ts.bleeding,
+          status: 'active',
+          detectedAt: Date.now(),
+        });
+      }
+    });
   }
 
   const updatedProfile: PatientProfile = {
@@ -805,29 +866,62 @@ export function applyMouthMapLocationsToSession(
     primarySymptomLocation: locationNames,
     mouthMapLocations: locationItems,
     concerns: updatedConcerns,
+    toothConcerns: toothSymptoms || session.profile.toothConcerns,
+    missingTeeth: missingTeeth || session.profile.missingTeeth,
+    toothPain: (toothSymptoms && toothSymptoms.some((t) => t.painSeverity !== 'none')) || session.profile.toothPain,
+    toothSensitivity: (toothSymptoms && toothSymptoms.some((t) => t.sensitivity !== 'none')) || session.profile.toothSensitivity,
+    toothDecay: (toothSymptoms && toothSymptoms.some((t) => t.visibleDamage === 'cavity')) || session.profile.toothDecay,
+    gumBleeding: (toothSymptoms && toothSymptoms.some((t) => t.bleeding)) || session.profile.gumBleeding,
   };
 
   const updatedSession: ScreeningSession = {
     ...session,
-    mouthMapLocation: isUnknown ? 'unknown' : regions[0]?.id || null,
+    mouthMapLocation: isUnknown ? 'unknown' : regions[0]?.id || (toothSymptoms?.[0] ? `tooth_${toothSymptoms[0].toothNumber}` : null),
     mouthMapLocations: locationItems,
     location: locationNames,
     profile: updatedProfile,
+    concerns: updatedConcerns,
     lastUpdatedAt: Date.now(),
   };
 
+  // Craft rich natural language summary message
+  let summaryMessage = '';
   const concernSuffix = targetConcern ? ` for ${targetConcern.description}` : '';
-  const summaryMessage = isUnknown
-    ? language === 'hi'
-      ? `मैंने मुँह के नक़्शे (Mouth Map) पर बताया कि मुझे${concernSuffix ? ` ${targetConcern?.description} के लिए` : ''} सटीक स्थान की पहचान नहीं है।`
-      : language === 'mr'
-      ? `मी माउथ मॅपवर सांगितले की मला${concernSuffix ? ` ${targetConcern?.description} साठी` : ''} नेमकी जागा निश्चित माहिती नाही.`
-      : `I indicated on the oral anatomy map that I am not sure of the exact location${concernSuffix}.`
-    : language === 'hi'
-    ? `मैंने मुँह के नक़्शे (Mouth Map) पर ${regions.length > 1 ? `${regions.length} स्थान` : ''} चिह्नित किए${concernSuffix ? ` (${targetConcern?.description})` : ''}: ${regions.map((r) => `${r.name} (${r.hindiName})`).join(', ')}`
-    : language === 'mr'
-    ? `मी माउथ मॅपवर ${regions.length > 1 ? `${regions.length} जागा` : 'जागा'} निवडल्या${concernSuffix ? ` (${targetConcern?.description})` : ''}: ${regions.map((r) => `${r.name} (${r.marathiName || r.hindiName})`).join(', ')}`
-    : `I confirmed ${regions.length > 1 ? `${regions.length} locations` : 'location'} on the mouth map${concernSuffix}: ${regions.map((r) => r.name).join(', ')}`;
+
+  if (toothSymptoms && toothSymptoms.length > 0) {
+    const toothDetails = toothSymptoms
+      .map(
+        (t) =>
+          `Tooth ${t.toothNumber} (${t.toothName}): pain ${t.painSeverity}${
+            t.sensitivity !== 'none' ? `, sensitive to ${t.sensitivity}` : ''
+          }${t.visibleDamage !== 'none' ? `, ${t.visibleDamage}` : ''}`
+      )
+      .join('; ');
+
+    const regionDetails = regions.length > 0 ? `, and oral tissue: ${regions.map((r) => r.name).join(', ')}` : '';
+
+    summaryMessage =
+      language === 'hi'
+        ? `मैंने मुँह के 3D नक़्शे (3D Oral Map) पर दाँत और स्थान दर्ज किए: ${toothDetails}${regionDetails}`
+        : language === 'mr'
+        ? `मी 3D ओरल मॅपवर दात आणि लक्षणे नोंदवली: ${toothDetails}${regionDetails}`
+        : `I reported symptoms on the 3D Oral Map: ${toothDetails}${regionDetails}`;
+  } else if (isUnknown) {
+    summaryMessage =
+      language === 'hi'
+        ? `मैंने मुँह के नक़्शे (Mouth Map) पर बताया कि मुझे${concernSuffix ? ` ${targetConcern?.description} के लिए` : ''} सटीक स्थान की पहचान नहीं है।`
+        : language === 'mr'
+        ? `मी माउथ मॅपवर सांगितले की मला${concernSuffix ? ` ${targetConcern?.description} साठी` : ''} नेमकी जागा निश्चित माहिती नाही.`
+        : `I indicated on the oral anatomy map that I am not sure of the exact location${concernSuffix}.`;
+  } else {
+    summaryMessage =
+      language === 'hi'
+        ? `मैंने मुँह के नक़्शे (Mouth Map) पर ${regions.length > 1 ? `${regions.length} स्थान` : ''} चिह्नित किए${concernSuffix ? ` (${targetConcern?.description})` : ''}: ${regions.map((r) => `${r.name} (${r.hindiName})`).join(', ')}`
+        : language === 'mr'
+        ? `मी माउथ मॅपवर ${regions.length > 1 ? `${regions.length} जागा` : 'जागा'} निवडल्या${concernSuffix ? ` (${targetConcern?.description})` : ''}: ${regions.map((r) => `${r.name} (${r.marathiName || r.hindiName})`).join(', ')}`
+        : `I confirmed ${regions.length > 1 ? `${regions.length} locations` : 'location'} on the mouth map${concernSuffix}: ${regions.map((r) => r.name).join(', ')}`;
+  }
 
   return { updatedSession, summaryMessage };
 }
+

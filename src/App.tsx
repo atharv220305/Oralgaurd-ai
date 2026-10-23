@@ -19,6 +19,7 @@ import {
   TobaccoCessationPlan,
   CessationLogEntry,
   AppLanguage,
+  ToothSymptomReport,
 } from './types';
 import { computeRiskAssessment } from './data/clinicalKnowledge';
 import { Header } from './components/Header';
@@ -217,20 +218,48 @@ export default function App() {
   };
 
   // Direct handlers for mouth map updates
-  const handleConfirmMultipleMapLocations = (regions: OralRegion[]) => {
+  const handleConfirmMultipleMapLocations = (
+    regions: OralRegion[],
+    targetConcernId?: string | null,
+    toothSymptoms?: ToothSymptomReport[],
+    missingTeethList?: string[]
+  ) => {
     const isUnknown = regions.some((r) => r.id === 'unknown_location');
     const locationItems: MouthMapLocationItem[] = isUnknown
       ? [{ id: 'unknown_location', area: 'Not sure / Unspecified', hindiName: 'सटीक स्थान ज्ञात नहीं', marathiName: 'नक्की जागा माहित नाही', confirmed: true }]
       : regions.map((r) => ({ id: r.id, area: r.name, hindiName: r.hindiName, marathiName: r.marathiName, confirmed: true }));
 
-    const locationNames = isUnknown ? 'Not sure / Unspecified' : regions.map((r) => r.name).join(', ');
+    if (toothSymptoms && toothSymptoms.length > 0) {
+      toothSymptoms.forEach((t) => {
+        locationItems.push({
+          id: `tooth_${t.toothNumber}`,
+          area: `Tooth ${t.toothNumber} (${t.toothName})`,
+          hindiName: `दांत ${t.toothNumber}`,
+          marathiName: `दात ${t.toothNumber}`,
+          confirmed: true,
+        });
+      });
+    }
+
+    const regionNames = isUnknown ? 'Not sure / Unspecified' : regions.map((r) => r.name).join(', ');
+    const toothNames = toothSymptoms && toothSymptoms.length > 0
+      ? toothSymptoms.map((t) => `Tooth ${t.toothNumber}`).join(', ')
+      : '';
+    const locationNames = [regionNames, toothNames].filter(Boolean).join('; ') || 'Oral Cavity';
     const regionIds = isUnknown ? [] : regions.map((r) => r.id);
 
-    const updated = {
+    const updated: PatientProfile = {
       ...indicators,
       affectedRegions: regionIds,
       primarySymptomLocation: locationNames,
       mouthMapLocations: locationItems,
+      toothConcerns: toothSymptoms || indicators.toothConcerns,
+      missingTeeth: missingTeethList || indicators.missingTeeth,
+      toothPain: (toothSymptoms && toothSymptoms.some((t) => t.painSeverity !== 'none')) || indicators.toothPain,
+      toothSensitivity: (toothSymptoms && toothSymptoms.some((t) => t.sensitivity && t.sensitivity !== 'none')) || indicators.toothSensitivity,
+      toothDecay: (toothSymptoms && toothSymptoms.some((t) => t.visibleDamage === 'cavity')) || indicators.toothDecay,
+      gumBleeding: (toothSymptoms && toothSymptoms.some((t) => t.bleeding)) || indicators.gumBleeding,
+      oralSwelling: (toothSymptoms && toothSymptoms.some((t) => t.swelling)) || indicators.oralSwelling,
     };
     setIndicators(updated);
     if (assessmentResult) {
@@ -308,6 +337,8 @@ export default function App() {
                 onOpenCessation={() => setCurrentScreen('cessation_support')}
                 onOpenHelplines={() => setCurrentScreen('health_helplines')}
                 onOpenEmergencyGuidance={() => setCurrentScreen('emergency_guidance')}
+                onOpenMouthMap={() => setCurrentScreen('mouth_map')}
+                onFindCare={() => setCurrentScreen('appointment')}
               />
             )}
 
@@ -424,6 +455,9 @@ export default function App() {
                 <InteractiveMouthMap
                   confirmedLocation={indicators.primarySymptomLocation}
                   confirmedLocations={indicators.mouthMapLocations || []}
+                  concerns={indicators.concerns || []}
+                  initialToothConcerns={indicators.toothConcerns || []}
+                  initialMissingTeeth={indicators.missingTeeth || []}
                   onConfirmMultipleLocations={handleConfirmMultipleMapLocations}
                   onCancel={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}
                   onClose={() => setCurrentScreen(assessmentResult ? 'result' : 'chat')}

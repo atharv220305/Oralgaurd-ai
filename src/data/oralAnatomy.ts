@@ -162,3 +162,12 @@ export const ORAL_REGIONS: Record<string, OralRegion> = {
     commonPathologies: ['Diffuse Mucosal Sensitivity', 'Generalized Stomatitis', 'Unlocalized Discomfort'],
   },
 };
+
+export const BASE_ORAL_REGIONS = { ...ORAL_REGIONS };
+
+// Re-export teeth helpers and regions
+export { TEETH_REGIONS, ALL_TEETH, UPPER_TEETH, LOWER_TEETH, TEETH_BY_ID, getToothDefinition, isToothId } from './teethData';
+import { TEETH_REGIONS } from './teethData';
+
+// Augment ORAL_REGIONS with tooth identifiers for universal lookup
+Object.assign(ORAL_REGIONS, TEETH_REGIONS);

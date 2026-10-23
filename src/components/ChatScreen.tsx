@@ -45,6 +45,7 @@ import {
   SymptomProgressEntry,
   AppLanguage,
   ClinicalConcern,
+  ToothSymptomReport,
 } from '../types';
 import {
   INITIAL_BOT_MESSAGE_EN,
@@ -382,13 +383,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   // Handle oral map confirmed selection
-  const handleConfirmMultipleLocationsFromMap = (regions: OralRegion[], targetConcernId?: string | null) => {
-    if (regions.length === 0) return;
+  const handleConfirmMultipleLocationsFromMap = (
+    regions: OralRegion[],
+    targetConcernId?: string | null,
+    toothSymptoms?: ToothSymptomReport[],
+    missingTeethList?: string[]
+  ) => {
+    if (regions.length === 0 && (!toothSymptoms || toothSymptoms.length === 0)) return;
     const { updatedSession, summaryMessage } = applyMouthMapLocationsToSession(
       screeningSession,
       regions,
       targetConcernId,
-      selectedLanguage
+      selectedLanguage,
+      toothSymptoms,
+      missingTeethList
     );
 
     setIndicators(updatedSession.profile);
@@ -1225,6 +1233,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             <InteractiveMouthMap
               confirmedLocation={indicators.primarySymptomLocation}
               confirmedLocations={indicators.mouthMapLocations || []}
+              concerns={screeningSession.profile.concerns || indicators.concerns || []}
+              initialToothConcerns={indicators.toothConcerns || []}
+              initialMissingTeeth={indicators.missingTeeth || []}
               onConfirmMultipleLocations={handleConfirmMultipleLocationsFromMap}
               onCancel={() => setShowMouthMap(false)}
               onClose={() => setShowMouthMap(false)}
