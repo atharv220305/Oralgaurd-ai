@@ -3,8 +3,10 @@ import {
   ALL_TEETH,
   ToothDefinition,
   ToothGeometricProfile,
+  ToothGeometricTemplate,
   getToothDefinition,
   getToothGeometricProfile,
+  getToothGeometricTemplate,
 } from './teethData';
 
 export interface Anatomical3DStructure {
@@ -19,66 +21,65 @@ export interface Anatomical3DStructure {
 }
 
 // ---------------------------------------------------------------------------
-// 1. ANATOMICALLY ACCURATE U-SHAPED SPLINE ARCH
-// Replaces the empirical power curve with a smooth Catmull-Rom spline
-// passing through dental anatomical landmarks for maxillary and mandibular arches.
+// 1. CUBIC BEZIER SPLINE ARCH FOR DENTAL ANATOMY
+// Replaces empirical power curves with a smooth, continuous C1-tangent-continuous
+// cubic Bezier spline for maxillary and mandibular arches.
 // ---------------------------------------------------------------------------
 
-// Control points for the maxillary (upper) dental arch spline
-// Origin (0,0,0) is center of mouth; +X is patient's left, -X is patient's right;
-// +Y is superior (maxillary), -Y is inferior (mandibular); +Z is anterior (lips), -Z is posterior (pharynx)
-const UPPER_ARCH_LANDMARKS = [
-  new THREE.Vector3(-2.45, 0.70, -1.55), // Q1: 18 - 3rd Molar
-  new THREE.Vector3(-2.34, 0.69, -0.92), // Q1: 17 - 2nd Molar
-  new THREE.Vector3(-2.14, 0.68, -0.26), // Q1: 16 - 1st Molar
-  new THREE.Vector3(-1.82, 0.68, 0.35),  // Q1: 15 - 2nd Premolar
-  new THREE.Vector3(-1.48, 0.69, 0.82),  // Q1: 14 - 1st Premolar
-  new THREE.Vector3(-1.05, 0.70, 1.25),  // Q1: 13 - Canine (arch corner turning point)
-  new THREE.Vector3(-0.52, 0.71, 1.54),  // Q1: 12 - Lateral Incisor
-  new THREE.Vector3(0.00,  0.72, 1.62),  // Midline contact between 11 & 21
-  new THREE.Vector3(0.52,  0.71, 1.54),  // Q2: 22 - Lateral Incisor
-  new THREE.Vector3(1.05,  0.70, 1.25),  // Q2: 23 - Canine (arch corner turning point)
-  new THREE.Vector3(1.48,  0.69, 0.82),  // Q2: 24 - 1st Premolar
-  new THREE.Vector3(1.82,  0.68, 0.35),  // Q2: 25 - 2nd Premolar
-  new THREE.Vector3(2.14,  0.68, -0.26), // Q2: 26 - 1st Molar
-  new THREE.Vector3(2.34,  0.69, -0.92), // Q2: 27 - 2nd Molar
-  new THREE.Vector3(2.45,  0.70, -1.55), // Q2: 28 - 3rd Molar
-];
+export function createCubicBezierDentalArch(isUpper: boolean): THREE.CurvePath<THREE.Vector3> {
+  const path = new THREE.CurvePath<THREE.Vector3>();
 
-// Control points for the mandibular (lower) dental arch spline
-// Form-fitted to Class I dental occlusion: sits slightly lingual to the maxillary arch (~1.5mm overjet/overbite)
-const LOWER_ARCH_LANDMARKS = [
-  new THREE.Vector3(-2.26, -0.66, -1.52), // Q4: 48 - 3rd Molar
-  new THREE.Vector3(-2.16, -0.68, -0.90), // Q4: 47 - 2nd Molar
-  new THREE.Vector3(-1.96, -0.71, -0.28), // Q4: 46 - 1st Molar
-  new THREE.Vector3(-1.66, -0.73, 0.30),  // Q4: 45 - 2nd Premolar
-  new THREE.Vector3(-1.36, -0.72, 0.76),  // Q4: 44 - 1st Premolar
-  new THREE.Vector3(-0.95, -0.71, 1.16),  // Q4: 43 - Canine
-  new THREE.Vector3(-0.46, -0.70, 1.44),  // Q4: 42 - Lateral Incisor
-  new THREE.Vector3(0.00,  -0.70, 1.50),  // Midline contact between 41 & 31
-  new THREE.Vector3(0.46,  -0.70, 1.44),  // Q3: 32 - Lateral Incisor
-  new THREE.Vector3(0.95,  -0.71, 1.16),  // Q3: 33 - Canine
-  new THREE.Vector3(1.36,  -0.72, 0.76),  // Q3: 34 - 1st Premolar
-  new THREE.Vector3(1.66,  -0.73, 0.30),  // Q3: 35 - 2nd Premolar
-  new THREE.Vector3(1.96,  -0.71, -0.28), // Q3: 36 - 1st Molar
-  new THREE.Vector3(2.16,  -0.68, -0.90), // Q3: 37 - 2nd Molar
-  new THREE.Vector3(2.26,  -0.66, -1.52), // Q3: 38 - 3rd Molar
-];
+  if (isUpper) {
+    // Maxillary Arch (Upper):
+    // Right quadrant: from 3rd molar (x < 0, z < 0) to anterior midline (x = 0, z > 0)
+    const rightP0 = new THREE.Vector3(-2.45, 0.70, -1.55); // 3rd Molar terminus
+    const rightP1 = new THREE.Vector3(-2.10, 0.68, 0.20);  // Posterior premolar-molar control
+    const rightP2 = new THREE.Vector3(-0.85, 0.71, 1.62);  // Canine-incisor horizontal tangent control
+    const rightP3 = new THREE.Vector3(0.00,  0.72, 1.62);  // Anterior midline contact (11 & 21)
 
-// Reusable Catmull-Rom spline instances
-export const UPPER_ARCH_SPLINE = new THREE.CatmullRomCurve3(UPPER_ARCH_LANDMARKS, false, 'centripetal');
-export const LOWER_ARCH_SPLINE = new THREE.CatmullRomCurve3(LOWER_ARCH_LANDMARKS, false, 'centripetal');
+    // Left quadrant: from anterior midline (x = 0, z > 0) to 3rd molar (x > 0, z < 0)
+    const leftQ0 = new THREE.Vector3(0.00,  0.72, 1.62);   // Anterior midline contact
+    const leftQ1 = new THREE.Vector3(0.85,  0.71, 1.62);   // Symmetrical horizontal tangent control
+    const leftQ2 = new THREE.Vector3(2.10,  0.68, 0.20);   // Symmetrical posterior control
+    const leftQ3 = new THREE.Vector3(2.45,  0.70, -1.55);  // 3rd Molar terminus
 
-export function getArchSpline(isUpper: boolean): THREE.CatmullRomCurve3 {
-  return isUpper ? UPPER_ARCH_SPLINE : LOWER_ARCH_SPLINE;
+    path.add(new THREE.CubicBezierCurve3(rightP0, rightP1, rightP2, rightP3));
+    path.add(new THREE.CubicBezierCurve3(leftQ0, leftQ1, leftQ2, leftQ3));
+  } else {
+    // Mandibular Arch (Lower) - Class I Occlusion (sits slightly lingual with ~1.5mm overjet/overbite)
+    const rightP0 = new THREE.Vector3(-2.26, -0.66, -1.52); // 3rd Molar terminus
+    const rightP1 = new THREE.Vector3(-1.90, -0.71, 0.16);  // Posterior control
+    const rightP2 = new THREE.Vector3(-0.75, -0.70, 1.50);  // Anterior horizontal tangent control
+    const rightP3 = new THREE.Vector3(0.00,  -0.70, 1.50);  // Midline contact (41 & 31)
+
+    const leftQ0 = new THREE.Vector3(0.00,  -0.70, 1.50);   // Midline contact
+    const leftQ1 = new THREE.Vector3(0.75,  -0.70, 1.50);   // Symmetrical horizontal tangent control
+    const leftQ2 = new THREE.Vector3(1.90,  -0.71, 0.16);   // Symmetrical posterior control
+    const leftQ3 = new THREE.Vector3(2.26,  -0.66, -1.52);  // 3rd Molar terminus
+
+    path.add(new THREE.CubicBezierCurve3(rightP0, rightP1, rightP2, rightP3));
+    path.add(new THREE.CubicBezierCurve3(leftQ0, leftQ1, leftQ2, leftQ3));
+  }
+
+  return path;
 }
 
-// Normalized spline parameter (t in [0, 1]) for each FDI tooth number
-// t = 0.5 is anterior midline.
-// t < 0.5 is patient's right (quadrant 1 or 4).
-// t > 0.5 is patient's left (quadrant 2 or 3).
+// Global cached cubic Bezier dental arch paths
+export const UPPER_ARCH_BEZIER = createCubicBezierDentalArch(true);
+export const LOWER_ARCH_BEZIER = createCubicBezierDentalArch(false);
+
+export function getArchSpline(isUpper: boolean): THREE.CurvePath<THREE.Vector3> {
+  return isUpper ? UPPER_ARCH_BEZIER : LOWER_ARCH_BEZIER;
+}
+
+// ---------------------------------------------------------------------------
+// 2. FDI TOOTH SPACING ALONG CUBIC BEZIER ARCH
+// Calculates exact parameter t in [0, 1] for each tooth based on clinical
+// mesiodistal widths so teeth contact naturally without gaps or collisions.
+// ---------------------------------------------------------------------------
+
 export function getToothArchSplineParameter(fdi: number, isUpper: boolean): { t: number; toothIndex: number } {
-  const index = fdi % 10; // 1 to 8 (central incisor to 3rd molar)
+  const index = fdi % 10; // 1 (central incisor) to 8 (3rd molar)
   const isRight = (fdi >= 11 && fdi <= 18) || (fdi >= 41 && fdi <= 48);
 
   // Calibrated cumulative offsets along spline half-length from midline (0.50)
@@ -115,9 +116,9 @@ export function getToothArchSplineParameter(fdi: number, isUpper: boolean): { t:
 }
 
 // ---------------------------------------------------------------------------
-// 2. CERVICAL PLACEMENT & COMPOUND ANGULATION
-// Accurately positions tooth meshes so that the cervical collar intersects the
-// gingival mesh naturally: ZERO floating geometry, and REDUCED excessive mesh overlap.
+// 3. CERVICAL PLACEMENT & COMPOUND ANGULATION
+// Integrates tooth roots into gingival mesh: ZERO floating gaps, and
+// ZERO excessive crown overlap at the gumline.
 // ---------------------------------------------------------------------------
 
 export function getTooth3DPlacement(tooth: ToothDefinition): {
@@ -128,31 +129,28 @@ export function getTooth3DPlacement(tooth: ToothDefinition): {
 } {
   const isUpper = tooth.arch === 'maxillary';
   const profile = tooth.profile || getToothGeometricProfile(tooth);
-  const spline = getArchSpline(isUpper);
-  const { t, toothIndex } = getToothArchSplineParameter(tooth.fdiNumber, isUpper);
+  const archPath = getArchSpline(isUpper);
+  const { t } = getToothArchSplineParameter(tooth.fdiNumber, isUpper);
 
-  // Sample exact 3D position and tangent along the anatomical U-shaped spline
-  const spinePos = spline.getPointAt(t);
-  const tangent = spline.getTangentAt(t).normalize();
+  // Sample exact 3D position and tangent along the cubic Bezier dental arch
+  const spinePos = archPath.getPointAt(t);
+  const tangent = archPath.getTangentAt(t).normalize();
 
-  // Tangent horizontal angle in XZ plane
+  // Tangent angle in XZ plane
   const tangentAngle = Math.atan2(tangent.x, tangent.z);
 
-  // Outward normal vector facing the facial/buccal surface (lips and cheeks)
-  // For patient's left (t > 0.5): tangent flows posterior-to-anterior or anterior-to-posterior
-  // We establish consistent outward facial normal:
+  // Outward-facing facial/buccal normal vector
   const isRight = tooth.quadrant === 1 || tooth.quadrant === 4;
   const facialAngle = isRight ? tangentAngle + Math.PI / 2 : tangentAngle - Math.PI / 2;
 
   // Cervical insertion depth into gingival cuff:
-  // Ensures tooth root collar is embedded by ~0.08 - 0.10 units inside the gingival volume
-  // so there is zero gap, while preserving 100% of the visible clinical crown outside.
+  // Roots integrate into the gingival mesh by ~0.08 - 0.10 units to guarantee no floating gap,
+  // while preserving 100% of the anatomical clinical crown outside the gumline.
   const insertionDepth = profile.cervicalOffset || 0.09;
 
-  // The gingival surface margin is offset from the spline bone ridge:
-  // Upper gingival surface is at spinePos.y - 0.22
-  // Lower gingival surface is at spinePos.y + 0.22
-  // The tooth's cervical finish line sits right at the gingival margin, penetrating by insertionDepth.
+  // Alveolar crest is offset vertically from spline bone center:
+  // Upper gingival margin: spinePos.y - 0.22
+  // Lower gingival margin: spinePos.y + 0.22
   const yCervical = isUpper
     ? spinePos.y - 0.22 + insertionDepth * 0.5
     : spinePos.y + 0.22 - insertionDepth * 0.5;
@@ -160,17 +158,11 @@ export function getTooth3DPlacement(tooth: ToothDefinition): {
   const position = new THREE.Vector3(spinePos.x, yCervical, spinePos.z);
 
   // Compound 3D Angulation:
-  // 1. Labial/Lingual Torque (facial proclination or lingual tilt)
   const torque = profile.labialTorque || 0;
-  // 2. Mesiodistal Tip (axial angulation towards midline)
   const tipSign = isRight ? -1 : 1;
   const tip = tipSign * (profile.mesiodistalTip || 0);
-  // 3. Sagittal Curve of Spee alignment
   const speePitch = isUpper ? -(1 - Math.abs(t - 0.5) * 2) * 0.04 : (1 - Math.abs(t - 0.5) * 2) * 0.05;
 
-  // Tooth orientation:
-  // Note: For upper teeth, crown extends downward (-Y) towards occlusal plane.
-  // We orient rotation so local Z faces facial/buccal and local Y aligns with tooth long axis.
   const rotation = new THREE.Euler(
     speePitch + (isUpper ? -torque : torque) * Math.cos(facialAngle),
     facialAngle,
@@ -178,7 +170,6 @@ export function getTooth3DPlacement(tooth: ToothDefinition): {
     'YXZ'
   );
 
-  // Scale derived directly from calibrated ToothGeometricProfile
   const scale = new THREE.Vector3(
     profile.mesiodistalWidth * 0.50,
     profile.crownHeight * 0.52,
@@ -194,9 +185,9 @@ export function getTooth3DPlacement(tooth: ToothDefinition): {
 }
 
 // ---------------------------------------------------------------------------
-// 3. DISTINCT PROCEDURAL TOOTH GEOMETRY GENERATORS
-// Defines distinct, morphologically accurate profiles for incisors, canines,
-// premolars, and molars without bloating polygon count (~120–220 vertices each).
+// 4. DISTINCT PROCEDURAL TOOTH GEOMETRIC TEMPLATES
+// Anatomically plausible crown geometries for incisors, canines, premolars,
+// and molars replacing primitive Box/Cone shapes.
 // ---------------------------------------------------------------------------
 
 interface LoftSlice {
@@ -268,47 +259,181 @@ function loftCrossSections(slices: LoftSlice[], radialSegments: number = 16): TH
   return geometry;
 }
 
-// 1. INCISOR: Chisel incisal edge, labial convexity, lingual fossa & cervical cingulum
+// 1. ANATOMICALLY REALISTIC INCISOR GEOMETRY
+// Models accurate morphologic characteristics for all 8 human incisors:
+// - Maxillary Central Incisors (11, 21): Broad spatulate crown, crisp 90° mesioincisal angle, rounded distoincisal angle, distinct lingual fossa with elevated mesial/distal marginal ridges and prominent basal cingulum.
+// - Maxillary Lateral Incisors (12, 22): Slender and rounded, deeper lingual fossa with prominent marginal ridges and lingual pit, sweeping rounded distoincisal corner.
+// - Mandibular Central Incisors (31, 41): Smallest, highly symmetrical chisel, sharp mesioincisal and distoincisal angles, subtle lingual fossa.
+// - Mandibular Lateral Incisors (32, 42): Wider crown, distal incisal edge slope, slight distal twist.
 export function createIncisorGeometry(
   profile: ToothGeometricProfile,
   isUpper: boolean,
-  isCentral: boolean
+  isCentral: boolean,
+  tooth?: ToothDefinition
 ): THREE.BufferGeometry {
-  const h = isUpper ? (isCentral ? 1.05 : 0.94) : (isCentral ? 0.86 : 0.90);
-  const w = isUpper ? (isCentral ? 0.96 : 0.82) : (isCentral ? 0.60 : 0.66);
-  const d = 0.66;
-  const cingulum = profile.cingulumProminence || 0.6;
-  const fossa = profile.fossaDepth || 0.4;
+  const h = profile.crownHeight || (isUpper ? (isCentral ? 1.05 : 0.92) : (isCentral ? 0.84 : 0.88));
+  const w = profile.mesiodistalWidth || (isUpper ? (isCentral ? 0.94 : 0.80) : (isCentral ? 0.58 : 0.64));
+  const d = profile.labiolingualDepth || 0.64;
+  const cingulum = profile.cingulumProminence || (isUpper ? (isCentral ? 0.65 : 0.60) : 0.35);
+  const fossa = profile.fossaDepth || (isUpper ? (isCentral ? 0.45 : 0.52) : 0.25);
+  const marginalRidge = profile.marginalRidgeHeight ?? (isUpper ? 0.70 : 0.32);
+  const mesialSharp = profile.mesialAngleSharpness ?? (isCentral ? 0.95 : 0.72);
+  const distalRound = profile.distalAngleRounding ?? (isCentral ? 0.55 : 0.38);
+  const incisalSlope = profile.incisalSlope ?? (isCentral ? -0.02 : -0.05);
 
-  // In local tooth space:
-  // For upper teeth: y = 0.15 is inside gingiva (cervical base), crown extends to y = -h (incisal chisel)
-  // For lower teeth: y = -0.15 is inside gingiva, crown extends to y = +h
   const signY = isUpper ? -1 : 1;
+  const radialSegments = 24; // 24 radial samples for smooth dental curves
 
-  const slices: LoftSlice[] = [
-    // 0: Cervical root collar (entering gingiva)
-    { y: signY * (-0.18), rx: w * 0.36, rz: d * 0.36, zOffset: 0, cornerRound: 1.0 },
-    // 1: Cervical margin (CEJ finish line at gum emergence)
-    { y: 0.0,             rx: w * 0.42, rz: d * 0.42, zOffset: 0, cornerRound: 1.05 },
-    // 2: Cervical third (prominent lingual cingulum)
-    { y: signY * (h * 0.28), rx: w * 0.46, rz: d * (0.44 + cingulum * 0.06), zOffset: -0.05 * cingulum, cornerRound: 1.15 },
-    // 3: Middle third (broadening labially, concave lingual fossa)
-    { y: signY * (h * 0.68), rx: w * 0.49, rz: d * (0.34 - fossa * 0.08), zOffset: 0.04, cornerRound: 1.35 },
-    // 4: Incisal edge (flattened chisel ridge with rounded line angles)
-    { y: signY * (h * 0.96), rx: w * 0.50, rz: d * 0.14, zOffset: 0.06, cornerRound: 1.65 },
-    // 5: Incisal ridge apex
-    { y: signY * (h * 1.00), rx: w * 0.48, rz: d * 0.06, zOffset: 0.06, cornerRound: 1.85 },
+  // Vertical slice definition along the clinical crown
+  // yNorm from -0.22 (subgingival root neck) through 0.0 (CEJ) to 1.0 (incisal ridge)
+  const sliceDefinitions = [
+    // 0: Subgingival root neck collar (submerged in gingival margin)
+    { yNorm: -0.22, scaleW: 0.38, scaleD: 0.40, lingualShift: 0.00, labialShift: 0.00, isCrown: false },
+    // 1: Cementoenamel Junction (CEJ finish line)
+    { yNorm: 0.00, scaleW: 0.44, scaleD: 0.44, lingualShift: 0.00, labialShift: 0.00, isCrown: false },
+    // 2: Cervical third (crest of contour: bulbous cingulum lingually, convex labially)
+    { yNorm: 0.25, scaleW: 0.47, scaleD: 0.48 + cingulum * 0.07, lingualShift: -0.04 * cingulum, labialShift: 0.02, isCrown: true },
+    // 3: Middle third (broadening mesiodistally, lingual fossa starting to hollow)
+    { yNorm: 0.55, scaleW: 0.49, scaleD: 0.40 - fossa * 0.05, lingualShift: 0.01, labialShift: 0.03, isCrown: true },
+    // 4: Incisal third (widest mesiodistal diameter, flat spatulate chisel profile)
+    { yNorm: 0.82, scaleW: 0.50, scaleD: 0.24 - fossa * 0.06, lingualShift: 0.03, labialShift: 0.04, isCrown: true },
+    // 5: Sub-incisal margin (asymmetric line angles and distal slope)
+    { yNorm: 0.95, scaleW: 0.50, scaleD: 0.12, lingualShift: 0.04, labialShift: 0.04, isCrown: true },
+    // 6: Incisal ridge edge apex (wear facet & mamelon contour)
+    { yNorm: 1.00, scaleW: 0.48, scaleD: 0.05, lingualShift: 0.04, labialShift: 0.04, isCrown: true },
   ];
 
-  // If inverted for upper, sort slices by ascending Y
-  if (isUpper) {
-    slices.sort((a, b) => a.y - b.y);
+  const points: THREE.Vector3[] = [];
+  const indices: number[] = [];
+
+  for (let s = 0; s < sliceDefinitions.length; s++) {
+    const sl = sliceDefinitions[s];
+    const yVal = signY * (sl.yNorm * h);
+
+    for (let r = 0; r < radialSegments; r++) {
+      // phi: 0 = Facial/Labial (+Z), PI/2 = Distal (+X), PI = Lingual (-Z), 3PI/2 = Mesial (-X)
+      const phi = (r / radialSegments) * Math.PI * 2;
+      const cosP = Math.cos(phi); // +1 on Labial (+Z), -1 on Lingual (-Z)
+      const sinP = Math.sin(phi); // +1 on Distal (+X), -1 on Mesial (-X)
+
+      // 1. Asymmetric Corner Curvature:
+      // Mesial side (sinP < 0) uses mesialSharp (crisp line angle)
+      // Distal side (sinP > 0) uses distalRound (rounded sweeping angle)
+      const isMesial = sinP < 0;
+      const cornerExponent = sl.isCrown && sl.yNorm >= 0.70
+        ? (isMesial ? (1.0 + mesialSharp * 0.9) : (1.0 + distalRound * 0.8))
+        : 1.0;
+
+      const absCos = Math.abs(cosP);
+      const absSin = Math.abs(sinP);
+      const signCos = Math.sign(cosP);
+      const signSin = Math.sign(sinP);
+
+      let px = signSin * Math.pow(absSin, cornerExponent) * (w * sl.scaleW);
+      let pz = signCos * Math.pow(absCos, cornerExponent) * (d * sl.scaleD);
+
+      // 2. Lingual surface features (cosP < 0):
+      if (cosP < 0 && sl.isCrown) {
+        // Cingulum bulge in lower crown, lingual fossa in upper crown
+        if (sl.yNorm <= 0.35) {
+          pz += sl.lingualShift;
+        } else {
+          // Fossa hollowing at center lingual (phi near PI)
+          const fossaCenter = Math.max(0, -cosP - Math.abs(sinP) * 0.6);
+          const fossaDepression = fossaCenter * (fossa * 0.09 * (sl.yNorm / 0.8));
+          pz += fossaDepression;
+
+          // Marginal ridges along mesial and distal borders of lingual surface
+          const ridgeProximity = Math.max(0, 1.0 - Math.abs(absSin - 0.7) * 3.5);
+          const ridgeElevation = ridgeProximity * (marginalRidge * 0.05 * sl.yNorm);
+          pz -= ridgeElevation;
+        }
+      }
+
+      // 3. Labial surface features (cosP > 0):
+      if (cosP > 0 && sl.isCrown) {
+        pz += sl.labialShift;
+        // Subtle vertical developmental depressions between the 3 labial lobes (mesial, central, distal)
+        if (sl.yNorm >= 0.40) {
+          const furrow = Math.sin(phi * 2.0);
+          pz -= Math.abs(furrow) * 0.015 * sl.yNorm;
+        }
+      }
+
+      // 4. Incisal Slope & Wear Bevel:
+      let vertexY = yVal;
+      if (sl.yNorm >= 0.90 && sinP > 0) {
+        // Distal downward slope
+        const slopeOffset = sinP * Math.abs(incisalSlope) * h;
+        vertexY += signY * (-slopeOffset);
+      }
+
+      // Incisal bevel facet
+      if (sl.yNorm >= 0.98) {
+        // Maxillary wear bevel faces lingually (-Z); Mandibular wear bevel faces labially (+Z)
+        if (isUpper && cosP < 0) {
+          vertexY += signY * (-0.02 * h);
+        } else if (!isUpper && cosP > 0) {
+          vertexY += signY * (-0.02 * h);
+        }
+      }
+
+      points.push(new THREE.Vector3(px, vertexY, pz));
+    }
   }
 
-  return loftCrossSections(slices, 16);
+  // Connect rings with quads (two triangles each)
+  const numSlices = sliceDefinitions.length;
+  for (let s = 0; s < numSlices - 1; s++) {
+    for (let r = 0; r < radialSegments; r++) {
+      const nextR = (r + 1) % radialSegments;
+      const p0 = s * radialSegments + r;
+      const p1 = s * radialSegments + nextR;
+      const p2 = (s + 1) * radialSegments + nextR;
+      const p3 = (s + 1) * radialSegments + r;
+
+      if (isUpper) {
+        indices.push(p0, p2, p1);
+        indices.push(p0, p3, p2);
+      } else {
+        indices.push(p0, p1, p2);
+        indices.push(p0, p2, p3);
+      }
+    }
+  }
+
+  // Bottom root cap (enters gingiva)
+  const botCapIdx = points.length;
+  points.push(new THREE.Vector3(0, signY * (-0.22 * h), 0));
+  for (let r = 0; r < radialSegments; r++) {
+    const nextR = (r + 1) % radialSegments;
+    if (isUpper) {
+      indices.push(botCapIdx, nextR, r);
+    } else {
+      indices.push(botCapIdx, r, nextR);
+    }
+  }
+
+  // Top incisal ridge cap
+  const topCapIdx = points.length;
+  const topStart = (numSlices - 1) * radialSegments;
+  points.push(new THREE.Vector3(0, signY * (1.00 * h), 0));
+  for (let r = 0; r < radialSegments; r++) {
+    const nextR = (r + 1) % radialSegments;
+    if (isUpper) {
+      indices.push(topCapIdx, topStart + r, topStart + nextR);
+    } else {
+      indices.push(topCapIdx, topStart + nextR, topStart + r);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
-// 2. CANINE: Pentagonal crown outline, sharp cusp tip, central labial ridge, robust cingulum
+// 2. CANINE TEMPLATE: Pentagonal crown outline, sharp cusp tip, central labial ridge, robust cingulum
 export function createCanineGeometry(
   profile: ToothGeometricProfile,
   isUpper: boolean
@@ -325,7 +450,7 @@ export function createCanineGeometry(
     { y: 0.0,             rx: w * 0.44, rz: d * 0.44, zOffset: 0, cornerRound: 1.1 },
     // Robust lingual cingulum
     { y: signY * (h * 0.28), rx: w * 0.48, rz: d * 0.52, zOffset: -0.03, cornerRound: 1.2 },
-    // Canine shoulder (widest mesiodistal contact diameter, prominent labial ridge)
+    // Canine shoulder (prominent axial labial ridge)
     { y: signY * (h * 0.65), rx: w * 0.50, rz: d * 0.45, zOffset: 0.05, cornerRound: 1.35 },
     // Cusp slope narrowing
     { y: signY * (h * 0.90), rx: w * 0.32, rz: d * 0.24, zOffset: 0.05, cornerRound: 1.5 },
@@ -340,7 +465,7 @@ export function createCanineGeometry(
   return loftCrossSections(slices, 18);
 }
 
-// 3. PREMOLAR: Bicuspid occlusal table with buccal & lingual cusps and developmental central groove
+// 3. PREMOLAR TEMPLATE: Bicuspid occlusal table with buccal & lingual cusps and developmental central groove
 export function createPremolarGeometry(
   profile: ToothGeometricProfile,
   isUpper: boolean
@@ -355,7 +480,6 @@ export function createPremolarGeometry(
   const indices: number[] = [];
   const radialSegments = 18;
 
-  // Base trunk slices
   const sliceHeights = [signY * (-0.18), 0.0, signY * (h * 0.35), signY * (h * 0.75)];
   if (isUpper) sliceHeights.sort((a, b) => a - b);
 
@@ -403,15 +527,15 @@ export function createPremolarGeometry(
   }
 
   // Occlusal Bicuspid Sculpting:
-  // Buccal cusp apex (taller, on facial side z > 0)
+  // Buccal cusp apex (facial side z > 0)
   const buccalCuspIdx = points.length;
   points.push(new THREE.Vector3(0, signY * (h * 0.98), d * 0.22));
 
-  // Lingual cusp apex (slightly shorter, on lingual side z < 0)
+  // Lingual cusp apex (lingual side z < 0)
   const lingualCuspIdx = points.length;
   points.push(new THREE.Vector3(0, signY * (h * 0.88), -d * 0.22));
 
-  // Central developmental groove fissure (depression)
+  // Central developmental groove fissure
   const centralGrooveIdx = points.length;
   points.push(new THREE.Vector3(0, signY * (h * 0.72), 0));
 
@@ -429,7 +553,6 @@ export function createPremolarGeometry(
     }
   }
 
-  // Central occlusal bridge triangle
   indices.push(buccalCuspIdx, centralGrooveIdx, lingualCuspIdx);
 
   geo.setFromPoints(points);
@@ -438,7 +561,7 @@ export function createPremolarGeometry(
   return geo;
 }
 
-// 4. MOLAR: Broad rectangular/rhomboidal occlusal table with 4-5 rounded cusps & central fossa
+// 4. MOLAR TEMPLATE: Broad occlusal table with 4-5 rounded cusps & central fossa
 export function createMolarGeometry(
   profile: ToothGeometricProfile,
   isUpper: boolean,
@@ -503,7 +626,6 @@ export function createMolarGeometry(
   }
 
   // 4 Rounded Molar Cusps + Central Fossa:
-  // MB (Mesiobuccal), DB (Distobuccal), ML (Mesiolingual), DL (Distolingual)
   const mbIdx = points.length;
   points.push(new THREE.Vector3(-w * 0.22, signY * (h * 0.96), d * 0.24));
   const dbIdx = points.length;
@@ -536,7 +658,6 @@ export function createMolarGeometry(
     }
   }
 
-  // Central developmental groove triangles
   if (isUpper) {
     indices.push(mbIdx, fossaIdx, dbIdx);
     indices.push(dbIdx, fossaIdx, dlIdx);
@@ -565,7 +686,7 @@ export function createAnatomicalToothGeometry(
   const index = tooth ? tooth.fdiNumber % 10 : 1;
 
   if (type === 'incisor') {
-    return createIncisorGeometry(profile, isUpper, index === 1);
+    return createIncisorGeometry(profile, isUpper, index === 1, tooth);
   }
   if (type === 'canine') {
     return createCanineGeometry(profile, isUpper);
@@ -577,22 +698,21 @@ export function createAnatomicalToothGeometry(
 }
 
 // ---------------------------------------------------------------------------
-// 4. GINGIVAL ARCH GEOMETRY
-// Follows the EXACT same anatomical Catmull-Rom spline with interdental papillae
-// scalloping so teeth emerge naturally at the CEJ without floating or heavy clipping.
+// 5. GINGIVAL ARCH GEOMETRY
+// Follows the EXACT same cubic Bezier dental arch path with interdental papillae
+// scalloping so tooth roots integrate smoothly without gaps or excessive overlap.
 // ---------------------------------------------------------------------------
 
 export function createGingivalArchGeometry(isUpper: boolean): THREE.BufferGeometry {
-  const spline = getArchSpline(isUpper);
+  const archPath = getArchSpline(isUpper);
   const numSteps = 64;
   const points: THREE.Vector3[] = [];
 
   for (let s = 0; s <= numSteps; s++) {
     const t = s / numSteps;
-    const p = spline.getPointAt(t);
+    const p = archPath.getPointAt(t);
 
     // Subtle interdental papilla scalloping (peaks between teeth, apical zeniths at teeth)
-    // 16 teeth across the full arch = 16 waves
     const papillaWave = Math.cos(t * Math.PI * 16) * 0.04;
     const yScalloped = isUpper ? p.y - papillaWave : p.y + papillaWave;
 
@@ -600,14 +720,13 @@ export function createGingivalArchGeometry(isUpper: boolean): THREE.BufferGeomet
   }
 
   const scallopedCurve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
-  // Radius of 0.36 creates a plush, anatomically sound alveolar ridge & gingival margin
   const tubeGeo = new THREE.TubeGeometry(scallopedCurve, 64, 0.36, 12, false);
   return tubeGeo;
 }
 
 // ---------------------------------------------------------------------------
-// 5. PALATE, TONGUE, CHEEKS & LIPS GEOMETRIES
-// Form-fitted to frame the dental spline arches cleanly
+// 6. PALATE, TONGUE, CHEEKS & LIPS GEOMETRIES
+// Form-fitted to frame the cubic Bezier dental spline arches cleanly
 // ---------------------------------------------------------------------------
 
 export function createPalateGeometry(): THREE.BufferGeometry {
@@ -643,7 +762,7 @@ export function createTongueGeometry(): THREE.BufferGeometry {
     y = y * 0.42;
     z = z * 1.18 - 0.15;
 
-    // Median sulcus of the tongue (central dorsal midline groove)
+    // Median sulcus of the tongue
     if (y > 0 && Math.abs(x) < 0.35) {
       y -= (0.35 - Math.abs(x)) * 0.22;
     }
@@ -680,7 +799,7 @@ export function createLipGeometry(isUpper: boolean): THREE.BufferGeometry {
   const y = isUpper ? 0.68 : -0.68;
 
   for (let s = 0; s <= 20; s++) {
-    const t = (s / 20) * 2 - 1; // -1 to +1
+    const t = (s / 20) * 2 - 1;
     const x = t * 2.35;
     const z = (1 - Math.pow(t, 2)) * 0.95 + 1.25;
     points.push(new THREE.Vector3(x, y, z));

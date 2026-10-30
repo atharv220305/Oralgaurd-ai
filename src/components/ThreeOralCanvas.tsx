@@ -17,12 +17,17 @@ import {
   ALL_TEETH,
   ToothDefinition,
   ToothGeometricProfile,
+  ToothGeometricTemplate,
   getToothDefinition,
   getToothGeometricProfile,
+  getToothGeometricTemplate,
 } from '../data/teethData';
 import {
   getTooth3DPlacement,
   getArchSpline,
+  createCubicBezierDentalArch,
+  UPPER_ARCH_BEZIER,
+  LOWER_ARCH_BEZIER,
   getToothArchSplineParameter,
   createAnatomicalToothGeometry,
   createIncisorGeometry,
@@ -36,8 +41,11 @@ import {
   createLipGeometry,
 } from '../data/oralAnatomy3D';
 
-// Re-export generation functions and types for direct modular access
+// Re-export cubic Bezier spline arch helpers and procedural tooth template generators for direct access
 export {
+  createCubicBezierDentalArch,
+  UPPER_ARCH_BEZIER,
+  LOWER_ARCH_BEZIER,
   createAnatomicalToothGeometry,
   createIncisorGeometry,
   createCanineGeometry,
@@ -47,8 +55,9 @@ export {
   getArchSpline,
   getToothArchSplineParameter,
   createGingivalArchGeometry,
+  getToothGeometricTemplate,
 };
-export type { ToothGeometricProfile };
+export type { ToothGeometricProfile, ToothGeometricTemplate };
 
 export interface ThreeOralCanvasProps {
   selectedIds: string[];

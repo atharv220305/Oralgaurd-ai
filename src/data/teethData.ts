@@ -12,6 +12,10 @@ export interface ToothGeometricProfile {
   cervicalOffset: number; // Calibrated insertion depth into the gingival cuff (prevents floating & excessive mesh overlap)
   labialTorque: number; // Labial (+) / lingual (-) crown inclination in radians
   mesiodistalTip: number; // Mesial (+) / distal (-) crown angulation in radians
+  mesialAngleSharpness?: number; // Sharpness of mesioincisal line angle (1.0 = sharp 90°, 0.5 = rounded)
+  distalAngleRounding?: number; // Rounding of distoincisal line angle (1.0 = square, 0.4 = heavily rounded)
+  incisalSlope?: number; // Incisal edge distal inclination slope in radians
+  marginalRidgeHeight?: number; // Lingual marginal ridge prominence (0 to 1)
 }
 
 export interface ToothDefinition {
@@ -29,6 +33,7 @@ export interface ToothDefinition {
   type: 'incisor' | 'canine' | 'premolar' | 'molar';
   typeName: string;
   profile?: ToothGeometricProfile; // 3D anatomical profile for realistic procedural rendering
+  template?: ToothGeometricProfile; // Procedural geometric template (incisor, canine, premolar, molar)
   // SVG coordinates matching the original OralGuard oral anatomy map
   x: number;
   y: number;
@@ -858,10 +863,14 @@ export function getToothGeometricProfile(toothOrFdi: ToothDefinition | number | 
         cuspCount: 0,
         morphology: 'incisor',
         cingulumProminence: isCentral ? 0.65 : 0.60,
-        fossaDepth: isCentral ? 0.45 : 0.40,
+        fossaDepth: isCentral ? 0.45 : 0.52,
         cervicalOffset: isCentral ? 0.095 : 0.090,
         labialTorque: isCentral ? 0.14 : 0.10,
         mesiodistalTip: isCentral ? 0.02 : 0.04,
+        mesialAngleSharpness: isCentral ? 0.95 : 0.72,
+        distalAngleRounding: isCentral ? 0.55 : 0.38,
+        incisalSlope: isCentral ? -0.02 : -0.05,
+        marginalRidgeHeight: isCentral ? 0.65 : 0.82,
       };
     } else {
       const isCentral = index === 1;
@@ -877,6 +886,10 @@ export function getToothGeometricProfile(toothOrFdi: ToothDefinition | number | 
         cervicalOffset: isCentral ? 0.085 : 0.088,
         labialTorque: isCentral ? 0.04 : 0.05,
         mesiodistalTip: isCentral ? 0.01 : 0.03,
+        mesialAngleSharpness: isCentral ? 0.96 : 0.92,
+        distalAngleRounding: isCentral ? 0.94 : 0.70,
+        incisalSlope: isCentral ? 0.00 : -0.04,
+        marginalRidgeHeight: isCentral ? 0.30 : 0.35,
       };
     }
   }
@@ -936,8 +949,13 @@ export function getToothGeometricProfile(toothOrFdi: ToothDefinition | number | 
   };
 }
 
+export type ToothGeometricTemplate = ToothGeometricProfile;
+export const getToothGeometricTemplate = getToothGeometricProfile;
+
 export const ALL_TEETH: ToothDefinition[] = [...UPPER_TEETH, ...LOWER_TEETH].map((tooth) => {
-  tooth.profile = getToothGeometricProfile(tooth);
+  const profile = getToothGeometricProfile(tooth);
+  tooth.profile = profile;
+  tooth.template = profile;
   return tooth;
 });
 
